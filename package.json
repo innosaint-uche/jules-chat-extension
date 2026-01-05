@@ -17,12 +17,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onView:jules.chatView",
-    "onCommand:jules.openChat",
-    "onCommand:jules.checkStatus",
-    "onCommand:jules.gitOps",
-    "onCommand:jules.generateCode"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -40,7 +35,8 @@
         {
           "type": "webview",
           "id": "jules.chatView",
-          "name": "Jules Agent"
+          "name": "Jules Agent",
+          "icon": "resources/jules.svg"
         }
       ]
     },
