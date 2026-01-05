@@ -59,8 +59,32 @@
         "command": "jules.generateCode",
         "title": "Jules: Generate Code",
         "category": "Jules"
+      },
+      {
+        "command": "jules.setApiKey",
+        "title": "Jules: Set API Key",
+        "category": "Jules"
+      },
+      {
+        "command": "jules.clearApiKey",
+        "title": "Jules: Clear API Key",
+        "category": "Jules"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Jules Chat",
+      "properties": {
+        "jules.mode": {
+          "type": "string",
+          "enum": [
+            "cli",
+            "api"
+          ],
+          "default": "cli",
+          "description": "Choose between using the local CLI (requires 'jules login') or the direct REST API (requires API Key)."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
