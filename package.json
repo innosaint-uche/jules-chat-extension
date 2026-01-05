@@ -1,0 +1,79 @@
+{
+  "name": "jules-chat-extension",
+  "displayName": "Jules Chat (Unofficial)",
+  "description": "An open-source chat interface for the Google Jules Async Agent.",
+  "version": "0.0.1",
+  "publisher": "Uchenna Innocent",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/innosaint-uche/jules-chat-extension.git"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:jules.chatView",
+    "onCommand:jules.openChat",
+    "onCommand:jules.checkStatus",
+    "onCommand:jules.gitOps",
+    "onCommand:jules.generateCode"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "jules-sidebar",
+          "title": "Jules",
+          "icon": "$(hubot)"
+        }
+      ]
+    },
+    "views": {
+      "jules-sidebar": [
+        {
+          "type": "webview",
+          "id": "jules.chatView",
+          "name": "Jules Agent"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "jules.openChat",
+        "title": "Jules: Open Chat"
+      },
+      {
+        "command": "jules.checkStatus",
+        "title": "Jules: Check Status",
+        "category": "Jules"
+      },
+      {
+        "command": "jules.gitOps",
+        "title": "Jules: Git Operations",
+        "category": "Jules"
+      },
+      {
+        "command": "jules.generateCode",
+        "title": "Jules: Generate Code",
+        "category": "Jules"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}
