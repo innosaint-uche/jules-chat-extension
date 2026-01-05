@@ -233,7 +233,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
         this._addHistory('jules', '🔐 Opening your browser to sign in...');
         this._setLoading(true);
-        const child = cp.spawn('jules', ['login'], { cwd: this._getCwd(), shell: true });
+        const child = this._spawnCli('jules', ['login'], this._getCwd());
         child.on('close', () => {
             this._setLoading(false);
             void this._refreshAuthStatus();
@@ -257,7 +257,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
         this._addHistory('jules', '🔓 Signing out...');
         this._setLoading(true);
-        const child = cp.spawn('jules', ['logout'], { cwd: this._getCwd(), shell: true });
+        const child = this._spawnCli('jules', ['logout'], this._getCwd());
         child.on('close', () => {
             this._setLoading(false);
             this._setAuthStatus('signed-out');
@@ -363,8 +363,21 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
             const id = lower.split(' ')[1];
             this._runSpawn('jules', ['remote', 'pull', '--session', id], cwd, `⬇️ Pulling session ${id}...`);
         } else {
+            // Smart Check: Ensure we are in a git repo before starting a task
+            const isGit = await this._isGitRepo(cwd);
+            if (!isGit) {
+                this._addHistory('jules', this._getRepoHelpMessage('missing-git'));
+                return;
+            }
+
+            const repoSlug = await this._getGitHubRepoSlug(cwd);
+            if (!repoSlug) {
+                this._addHistory('jules', this._getRepoHelpMessage('missing-remote'));
+                return;
+            }
+
             // Task Execution
-            this._runSpawn('jules', ['remote', 'new', '--repo', '.', '--session', message], cwd, '🚀 Dispatching Agent...');
+            this._runSpawn('jules', ['remote', 'new', '--repo', repoSlug, '--session', message], cwd, '🚀 Dispatching Agent...');
         }
     }
 
@@ -373,7 +386,10 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         this._addHistory('jules', intro);
         this._setLoading(true);
 
-        const child = cp.spawn(command, args, { cwd, shell: true });
+        // FIX: Use shell: false to prevent multiline prompts from being interpreted as shell commands.
+        // This fixes the "/bin/sh: line 1: Mission:: command not found" error.
+        const child = this._spawnCli(command, args, cwd);
+        let repoHelpShown = false;
 
         child.stdout.on('data', (data) => {
             const output = data.toString().trim();
@@ -382,7 +398,17 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
         child.stderr.on('data', (data) => {
             const output = data.toString().trim();
-            if (output) this._appendStreamOutput(`Checking: ${output}`);
+            if (!output) return;
+            this._appendStreamOutput(`Checking: ${output}`);
+            if (!repoHelpShown && command === 'jules' && this._looksLikeRepoMissing(output)) {
+                repoHelpShown = true;
+                this._addHistory('jules', this._getRepoHelpMessage('missing-remote'));
+            }
+        });
+
+        child.on('error', (err) => {
+            this._setLoading(false);
+            this._addHistory('system', `❌ Execution Error: ${err.message}`);
         });
 
         child.on('close', (code) => {
@@ -398,6 +424,119 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
     private _getCwd(): string {
         return vscode.workspace.workspaceFolders?.[0].uri.fsPath || '.';
+    }
+
+    private _isGitRepo(cwd: string): Promise<boolean> {
+        return new Promise(resolve => {
+            cp.exec('git rev-parse --is-inside-work-tree', { cwd }, (err) => resolve(!err));
+        });
+    }
+
+    private _spawnCli(command: string, args: string[], cwd: string) {
+        const isWin = process.platform === 'win32';
+        return cp.spawn(isWin ? `${command}.cmd` : command, args, { cwd, shell: false });
+    }
+
+    private _getGitRemoteUrl(cwd: string): Promise<string | null> {
+        return new Promise(resolve => {
+            cp.exec('git remote get-url origin', { cwd }, (err, stdout) => {
+                const originUrl = stdout.trim();
+                if (!err && originUrl) {
+                    resolve(originUrl);
+                    return;
+                }
+
+                cp.exec('git remote', { cwd }, (remoteErr, remoteStdout) => {
+                    if (remoteErr) {
+                        resolve(null);
+                        return;
+                    }
+                    const remotes = remoteStdout
+                        .split(/\r?\n/)
+                        .map(r => r.trim())
+                        .filter(Boolean);
+                    if (remotes.length === 0) {
+                        resolve(null);
+                        return;
+                    }
+                    cp.exec(`git remote get-url ${remotes[0]}`, { cwd }, (urlErr, urlStdout) => {
+                        const url = urlStdout.trim();
+                        resolve(!urlErr && url ? url : null);
+                    });
+                });
+            });
+        });
+    }
+
+    private _getGitHubRepoSlug(cwd: string): Promise<string | null> {
+        return this._getGitRemoteUrl(cwd).then((remoteUrl) => {
+            if (!remoteUrl) return null;
+            return this._extractGitHubRepoSlug(remoteUrl);
+        });
+    }
+
+    private _extractGitHubRepoSlug(remoteUrl: string): string | null {
+        const url = remoteUrl.trim();
+        const patterns = [
+            /^git@github\.com:([^/]+\/[^/]+?)(?:\.git)?$/i,
+            /^https?:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?\/?$/i,
+            /^ssh:\/\/git@github\.com\/([^/]+\/[^/]+?)(?:\.git)?\/?$/i
+        ];
+
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match) return match[1];
+        }
+        return null;
+    }
+
+    private _looksLikeRepoMissing(output: string): boolean {
+        const text = output.toLowerCase();
+        return text.includes('repo unknown/unknown')
+            || (text.includes('not connected') && text.includes('jules'))
+            || text.includes('doesn\'t exist on github')
+            || text.includes('does not exist on github');
+    }
+
+    private _getRepoHelpMessage(context: 'missing-git' | 'missing-remote'): string {
+        const header = context === 'missing-git'
+            ? '⚠️ Git Missing: This folder is not a git repository.'
+            : '⚠️ Repo Not Connected: Jules could not determine a GitHub repo for this folder.';
+
+        const steps = context === 'missing-git'
+            ? [
+                'Initialize git in this folder:',
+                'git init',
+                'Add a GitHub remote:',
+                'git remote add origin https://github.com/<owner>/<repo>.git'
+            ]
+            : [
+                'Make sure your repo has a GitHub remote:',
+                'git remote -v',
+                'git remote add origin https://github.com/<owner>/<repo>.git'
+            ];
+
+        const reference = [
+            '',
+            'Jules Tools Reference',
+            'Install: npm install -g @google/jules',
+            'Login: jules login',
+            'Logout: jules logout',
+            'List repos: jules remote list --repo',
+            'List sessions: jules remote list --session',
+            'New session: jules remote new --repo owner/repo --session "your task"',
+            'Pull results: jules remote pull --session <id>',
+            'Docs: https://jules.google/docs'
+        ];
+
+        return [
+            header,
+            '',
+            ...steps,
+            '',
+            'Then retry your request.',
+            ...reference
+        ].join('\n');
     }
 
     // --- HELPER: History Management ---
