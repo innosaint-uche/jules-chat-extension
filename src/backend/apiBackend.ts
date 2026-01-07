@@ -175,14 +175,14 @@ export class ApiBackend implements JulesBackend {
 
     private async _pollActivities(sessionName: string, chatSession: ChatSession) {
         let lastActivityCount = 0;
-        const pollInterval = 3000;
-        const maxPolls = 100; // Stop after 5 minutes of silence
-        let polls = 0;
+        let currentDelay = 1000; // Start fast (1s)
+        const maxDelay = 10000; // Cap at 10s
+        const startTime = Date.now();
+        const timeoutMs = 5 * 60 * 1000; // 5 minutes timeout
 
-        const interval = setInterval(async () => {
-            polls++;
-            if (polls > maxPolls) {
-                clearInterval(interval);
+        // Optimization: Use exponential backoff to reduce API load while maintaining responsiveness
+        const poll = async () => {
+            if (Date.now() - startTime > timeoutMs) {
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }
@@ -194,7 +194,9 @@ export class ApiBackend implements JulesBackend {
                 });
                 const data = await res.json() as any;
 
+                let hasNewActivity = false;
                 if (data.activities && data.activities.length > lastActivityCount) {
+                    hasNewActivity = true;
                     const newActivities = data.activities.slice(lastActivityCount);
                     lastActivityCount = data.activities.length;
 
@@ -220,14 +222,27 @@ export class ApiBackend implements JulesBackend {
                     }
                 }
 
-                // Check for completion status if available in session details?
-                // For now, we just keep polling.
+                // Adaptive Backoff:
+                // If we found activity, reset delay to be snappy for follow-ups.
+                // If silence, back off to save resources.
+                if (hasNewActivity) {
+                    currentDelay = 1000;
+                } else {
+                    currentDelay = Math.min(currentDelay * 1.5, maxDelay);
+                }
+
+                setTimeout(poll, currentDelay);
 
             } catch (e) {
                 console.error('Polling error', e);
+                // Retry with backoff even on error
+                currentDelay = Math.min(currentDelay * 2, maxDelay);
+                setTimeout(poll, currentDelay);
             }
+        };
 
-        }, pollInterval);
+        // Start polling
+        setTimeout(poll, currentDelay);
     }
 
     // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---

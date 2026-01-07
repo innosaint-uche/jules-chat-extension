@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CliBackend } from './backend/cliBackend';
 import { ApiBackend } from './backend/apiBackend';
 import { JulesBackend, JulesAuthStatus, ChatSession, ChatMessage } from './backend/types';
+import { CLI_COMMANDS } from './commandData';
 
 export function activate(context: vscode.ExtensionContext) {
     const provider = new JulesChatProvider(context.extensionUri, context);
@@ -133,6 +134,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     else if (data.value === 'help') this._showHelp();
                     else if (data.value === 'login') await this.login();
                     else if (data.value === 'logout') await this.logout();
+                    else if (data.value === 'apiKey') await vscode.commands.executeCommand('jules.setApiKey');
+                    else if (data.value.startsWith('notify:')) vscode.window.showInformationMessage(data.value.split(':')[1]);
                     else if (data.value.startsWith('git:')) await this._handleGitCommand(data.value);
                     break;
                 case 'skill':
@@ -334,6 +337,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
+        const cmdList = JSON.stringify(CLI_COMMANDS);
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -355,15 +359,24 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 .view { display: none; flex-direction: column; height: 100%; }
                 .view.active { display: flex; }
 
-                /* CHEAT SHEET */
-                .cheat-sheet { background: var(--jules-bg); padding: 10px; font-size: 11px; border-bottom: 1px solid var(--border); }
-                .cheat-sheet details { cursor: pointer; }
-                .cheat-sheet summary { font-weight: bold; margin-bottom: 5px; outline: none; }
-                .cheat-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); }
-                .cheat-cmd { font-family: monospace; color: var(--vscode-textLink-foreground); }
+                /* TABS */
+                .tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--jules-bg); }
+                .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-bottom: 2px solid transparent; font-size: 12px; font-weight: 600; opacity: 0.7; }
+                .tab.active { border-bottom-color: var(--user-bg); opacity: 1; }
+                .tab:hover { opacity: 1; }
+
+                /* COMMANDS LIST VIEW */
+                #commands-view { padding: 10px; overflow-y: auto; }
+                .cmd-card { background: var(--jules-bg); border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid var(--border); }
+                .cmd-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+                .cmd-name { font-family: monospace; font-weight: bold; color: var(--vscode-textLink-foreground); }
+                .cmd-desc { font-size: 12px; color: var(--text); margin-bottom: 6px; }
+                .cmd-usage { font-family: monospace; font-size: 10px; background: var(--input-bg); padding: 4px; border-radius: 4px; color: var(--vscode-descriptionForeground); word-break: break-all; }
+                .cmd-actions { display: flex; gap: 8px; margin-top: 8px; }
+                .cmd-btn { padding: 2px 8px; font-size: 11px; cursor: pointer; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 2px; }
 
                 /* SESSION LIST */
-                #session-list-view { padding: 10px; }
+                #session-list-view { padding: 10px; overflow-y: auto; }
                 .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
                 .session-header h2 { margin: 0; font-size: 14px; text-transform: uppercase; color: var(--vscode-descriptionForeground); }
                 .btn-new { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
@@ -409,22 +422,14 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
             </style>
         </head>
         <body>
+            <!-- TAB BAR (Only shown when not in chat) -->
+            <div id="tab-bar" class="tab-bar">
+                <div class="tab active" onclick="switchTab('sessions')">TASKS</div>
+                <div class="tab" onclick="switchTab('commands')">CLI COMMANDS</div>
+            </div>
             
             <!-- SESSION LIST VIEW -->
             <div id="session-list-view" class="view active">
-                <!-- CHEAT SHEET -->
-                <div class="cheat-sheet">
-                    <details>
-                        <summary>CLI Cheat Sheet</summary>
-                        <div class="cheat-row"><span class="cheat-cmd">jules login</span> <span>Sign In</span></div>
-                        <div class="cheat-row"><span class="cheat-cmd">jules logout</span> <span>Sign Out</span></div>
-                        <div class="cheat-row"><span class="cheat-cmd">jules remote list</span> <span>List Activities</span></div>
-                        <div class="cheat-row"><span class="cheat-cmd">jules remote new</span> <span>Start Session</span></div>
-                        <div class="cheat-row"><span class="cheat-cmd">jules remote pull</span> <span>Download Code</span></div>
-                        <div class="cheat-row"><span class="cheat-cmd">jules version</span> <span>Check Version</span></div>
-                    </details>
-                </div>
-
                 <div class="session-header">
                     <h2>My Tasks</h2>
                     <button class="btn-new" onclick="createNewSession()">+ New Task</button>
@@ -432,6 +437,11 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 <div id="session-list">
                     <!-- Session items injected here -->
                 </div>
+            </div>
+
+            <!-- COMMANDS VIEW -->
+            <div id="commands-view" class="view">
+                <!-- Commands injected here -->
             </div>
 
             <!-- CHAT VIEW -->
@@ -475,6 +485,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 const sessionListEl = document.getElementById('session-list');
                 const sessionView = document.getElementById('session-list-view');
                 const chatView = document.getElementById('chat-view');
+                const commandsView = document.getElementById('commands-view');
+                const tabBar = document.getElementById('tab-bar');
                 const chatContainer = document.getElementById('chat');
                 const sessionTitleEl = document.getElementById('active-session-title');
                 const inp = document.getElementById('input-box');
@@ -483,9 +495,60 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 const authLabel = document.getElementById('auth-label');
                 const signOutChip = document.getElementById('signout-chip');
 
+                const commands = ${cmdList};
                 let currentSessionId = null;
 
+                // --- INITIALIZATION ---
+                renderCommands();
+
                 // --- NAVIGATION ---
+                function switchTab(tab) {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelector(\`.tab[onclick="switchTab('\${tab}')"]\`).classList.add('active');
+
+                    if (tab === 'sessions') {
+                        sessionView.classList.add('active');
+                        commandsView.classList.remove('active');
+                    } else {
+                        sessionView.classList.remove('active');
+                        commandsView.classList.add('active');
+                    }
+                }
+
+                function renderCommands() {
+                    commandsView.innerHTML = '';
+                    commands.forEach(c => {
+                        const div = document.createElement('div');
+                        div.className = 'cmd-card';
+                        let actionHtml = '';
+                        if (c.actionId) {
+                            actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
+                        }
+                        actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
+
+                        div.innerHTML = \`
+                            <div class="cmd-header">
+                                <span class="cmd-name">\${c.command}</span>
+                                <div class="cmd-actions">\${actionHtml}</div>
+                            </div>
+                            <div class="cmd-desc">\${c.description}</div>
+                            \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
+                        \`;
+                        commandsView.appendChild(div);
+                    });
+                }
+
+                function copyToClipboard(text) {
+                    // Creating a dummy input to copy text - standard way in webview if navigator.clipboard is restricted
+                    const el = document.createElement('textarea');
+                    el.value = text;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    vscode.postMessage({ type: 'command', value: 'notify:Copied to clipboard' });
+                }
+
                 function createNewSession() {
                     vscode.postMessage({ type: 'newSession' });
                 }
@@ -520,9 +583,14 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 function showView(viewName) {
                     if (viewName === 'list') {
                         sessionView.classList.add('active');
+                        tabBar.style.display = 'flex';
                         chatView.classList.remove('active');
+                        commandsView.classList.remove('active');
+                        switchTab('sessions'); // Default back to sessions
                     } else {
                         sessionView.classList.remove('active');
+                        commandsView.classList.remove('active');
+                        tabBar.style.display = 'none';
                         chatView.classList.add('active');
                     }
                 }
