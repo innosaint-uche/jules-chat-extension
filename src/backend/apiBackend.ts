@@ -219,7 +219,9 @@ export class ApiBackend implements JulesBackend {
                 });
                 const data = await res.json() as any;
 
+                let hasNewActivity = false;
                 if (data.activities && data.activities.length > lastActivityCount) {
+                    hasNewActivity = true;
                     const newActivities = data.activities.slice(lastActivityCount);
                     // Update local counter
                     lastActivityCount = data.activities.length;
@@ -239,13 +241,28 @@ export class ApiBackend implements JulesBackend {
                         }
                     }
                 }
+
+                // Adaptive Backoff:
+                // If we found activity, reset delay to be snappy for follow-ups.
+                // If silence, back off to save resources.
+                if (hasNewActivity) {
+                    currentDelay = 1000;
+                } else {
+                    currentDelay = Math.min(currentDelay * 1.5, maxDelay);
+                }
+
+                setTimeout(poll, currentDelay);
+
             } catch (e) {
                 console.error('Polling error', e);
+                // Retry with backoff even on error
+                currentDelay = Math.min(currentDelay * 2, maxDelay);
+                setTimeout(poll, currentDelay);
             }
+        };
 
-        }, pollInterval);
-
-        this._activePollers.set(sessionName, interval);
+        // Start polling
+        setTimeout(poll, currentDelay);
     }
 
     // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
