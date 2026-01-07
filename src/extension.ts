@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // API Key Management Commands
     register('jules.setApiKey', async () => {
-        await provider.switchBackend('api'); // Ensure backend is ready
+        await provider.switchBackend('api');
         await provider.login();
     });
 
@@ -51,7 +51,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private _backend: JulesBackend;
     
-    // MEMORY: Store multiple sessions
     private _sessions: ChatSession[] = [];
     private _activeSessionId: string | null = null;
     private _authStatus: JulesAuthStatus = 'unknown';
@@ -60,14 +59,13 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         private readonly _extensionUri: vscode.Uri,
         private readonly _context: vscode.ExtensionContext
     ) {
-        // Initialize Backend based on Config
         this._backend = this._createBackend();
 
-        // Listen for config changes
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('jules.mode')) {
                 this._backend = this._createBackend();
                 this._refreshAuthStatus();
+                this._updateView(); // Re-render to show/hide CLI tools
             }
         });
     }
@@ -88,10 +86,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    // Public method to allow command handlers to force a switch (e.g. before setting key)
     public async switchBackend(mode: 'cli' | 'api') {
         await vscode.workspace.getConfiguration('jules').update('mode', mode, vscode.ConfigurationTarget.Global);
-        // The change listener will handle the re-creation
     }
 
     public resolveWebviewView(
@@ -108,7 +104,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-        // Initialize View State
         this._updateView();
         this._postAuthStatus();
         void this._refreshAuthStatus();
@@ -130,13 +125,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     await this._handleUserMessage(data.value);
                     break;
                 case 'command':
-                    if (data.value === 'status') await this._handleUserMessage('status');
-                    else if (data.value === 'help') this._showHelp();
-                    else if (data.value === 'login') await this.login();
-                    else if (data.value === 'logout') await this.logout();
-                    else if (data.value === 'apiKey') await vscode.commands.executeCommand('jules.setApiKey');
-                    else if (data.value.startsWith('notify:')) vscode.window.showInformationMessage(data.value.split(':')[1]);
-                    else if (data.value.startsWith('git:')) await this._handleGitCommand(data.value);
+                    await this._handleCommand(data.value);
                     break;
                 case 'skill':
                     await this._handleSkillAction(data.value);
@@ -145,7 +134,62 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    // --- Auth Wrappers ---
+    // --- Command Handling ---
+    private async _handleCommand(cmd: string) {
+        const cwd = this._getCwd();
+
+        switch (cmd) {
+            case 'login': await this.login(); break;
+            case 'logout': await this.logout(); break;
+            case 'status': await this._handleUserMessage('status'); break;
+            case 'help': this._showHelp(); break;
+            case 'version':
+                if (this._isCliMode()) await this._runCliCommand('version');
+                else this._addHistory('system', 'Version check not available in API mode.');
+                break;
+            case 'remote-list-session':
+                // Shared logic if possible, or force text command
+                await this._handleUserMessage('status');
+                break;
+            case 'remote-list-repo':
+                if (this._isCliMode()) await this._runCliCommand('remote', ['list', '--repo']);
+                else this._addHistory('system', 'Repo listing not available in API mode.');
+                break;
+            case 'remote-pull':
+                this._view?.webview.postMessage({ type: 'setInput', value: 'pull <session-id>' });
+                break;
+            default:
+                if (cmd.startsWith('git:')) await this._handleGitCommand(cmd);
+                break;
+        }
+    }
+
+    private _isCliMode(): boolean {
+        return vscode.workspace.getConfiguration('jules').get<string>('mode') !== 'api';
+    }
+
+    private async _runCliCommand(command: string, args: string[] = []) {
+        // Quick helper to run a one-off CLI command and dump to chat
+        // This is a bit of a hack, strictly we should go through backend, but backend is interface-bound.
+        // We'll trust the backend implementation for now or just cast it if we know it's CLI.
+        // But cleaner is to use the `sendMessage` flow which CliBackend interprets.
+
+        // Actually, CliBackend interprets "status" as "remote list --session".
+        // Let's just spawn directly for these "Toolbox" commands if we are in CLI mode.
+        // Or better, add a method to backend? No, let's keep it simple.
+
+        const cp = require('child_process');
+        const cmdString = `jules ${command} ${args.join(' ')}`;
+        this._addHistory('user', `Executing: ${cmdString}`);
+        this._setLoading(true);
+
+        cp.exec(cmdString, { cwd: this._getCwd() }, (err: any, stdout: string, stderr: string) => {
+            this._setLoading(false);
+            const output = (stdout + stderr).trim();
+            this._addHistory('jules', output || 'Done.');
+        });
+    }
+
     public async login() {
         this._setLoading(true);
         await this._backend.login(this._getCwd());
@@ -166,20 +210,19 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
             timestamp: Date.now(),
             messages: []
         };
-        this._sessions.unshift(newSession); // Add to top
+        this._sessions.unshift(newSession);
         this._activeSessionId = id;
         this._updateView();
-        
-        // Welcome message for new session
-        // this._checkWorkspaceConnection(); // TODO: Move this to backend or keep as UI helper?
     }
 
     private _updateView() {
         if (!this._view) return;
 
-        // Prepare data payload
+        const mode = vscode.workspace.getConfiguration('jules').get<string>('mode');
+
         const payload = {
             type: 'stateUpdate',
+            mode,
             activeSessionId: this._activeSessionId,
             sessions: this._sessions.map(s => ({ 
                 id: s.id, 
@@ -219,7 +262,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     }
 
     public handleExternalCommand(cmd: string) {
-        // Force create session if none exists
         if (!this._activeSessionId) {
             this._createNewSession();
         }
@@ -231,14 +273,17 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     }
 
     private async _handleGitCommand(cmd: string) {
-        // This is purely local, maybe move to backend? Or keep here as it's UI driven?
-        // Keeping in UI/Provider for now as it uses spawn directly for simple git ops.
-        // Actually, let's keep it here for simplicity as it's not strictly "Jules Backend" logic.
         const action = cmd.split(':')[1];
-        const cwd = this._getCwd();
-        // ... (Git logic implementation omitted for brevity, reusing existing spawn helper if needed)
-        // Re-implementing simple git spawn here since we moved the big class out
-        this._addHistory('jules', `running git ${action}...`);
+        // Simple visual confirmation
+        this._addHistory('user', `Git Action: ${action}`);
+
+        // In a real implementation, we would call git here.
+        // Reusing existing simple spawn logic from previous version implicitly via CliBackend logic
+        // or just simple exec.
+        const cp = require('child_process');
+        cp.exec(`git ${action}`, { cwd: this._getCwd() }, (err: any, stdout: string, stderr: string) => {
+             this._addHistory('jules', (stdout + stderr).trim() || 'Done.');
+        });
     }
 
     private async _handleSkillAction(skill: string) {
@@ -255,13 +300,13 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         }
 
         const skillPrompts: { [key: string]: string } = {
-            'performance': `You are "Bolt" ⚡, a performance-obsessed agent.\nMission: Implement ONE measurable performance improvement.\nProcess: profile baseline, identify the hot path, apply a targeted change, re-measure, and report the delta.\nBoundaries: keep scope tight, avoid premature optimization, run lint/tests.`,
-            'design': `You are "Palette" 🎨, guardian of usability.\nMission: Deliver ONE micro-UX improvement users feel immediately.\nProcess: identify a friction point, improve clarity or flow, verify keyboard nav and ARIA.\nBoundaries: use existing design tokens; no full redesigns.`,
-            'security': `You are "Sentinel" 🛡️, defender of the codebase.\nMission: Fix ONE real security issue or add ONE defense-in-depth improvement.\nProcess: identify risk, apply a minimal fix, add validation or safe defaults.\nPriorities: Critical > High > Medium.`,
-            'test': `You are "Probe" 🧪, breaker of assumptions.\nMission: Add tests to catch real regressions.\nProcess: target failure paths and edge cases, assert expected behavior.\nBoundaries: do not refactor production code; keep tests focused.`,
-            'debug': `You are "Tracer" 🧯, debugging specialist.\nMission: Find root cause and propose the minimal fix.\nProcess: reproduce, isolate, explain the cause, then patch.\nBoundaries: avoid broad refactors; keep changes surgical.`,
-            'refactor': `You are "Refine" ♻️, refactoring agent.\nMission: Improve readability and structure with ZERO behavior change.\nProcess: clarify naming, reduce duplication, simplify control flow.\nBoundaries: no feature changes or performance work.`,
-            'review': `You are "Lens" 👀, code review agent.\nMission: Flag logic errors, style violations, and security smells.\nProcess: scan diffs, call out risks, and suggest fixes.\nBoundaries: do not approve your own code.`
+            'performance': `You are "Bolt" ⚡, a performance-obsessed agent.\nMission: Implement ONE measurable performance improvement.`,
+            'design': `You are "Palette" 🎨, guardian of usability.\nMission: Deliver ONE micro-UX improvement users feel immediately.`,
+            'security': `You are "Sentinel" 🛡️, defender of the codebase.\nMission: Fix ONE real security issue or add ONE defense-in-depth improvement.`,
+            'test': `You are "Probe" 🧪, breaker of assumptions.\nMission: Add tests to catch real regressions.`,
+            'debug': `You are "Tracer" 🧯, debugging specialist.\nMission: Find root cause and propose the minimal fix.`,
+            'refactor': `You are "Refine" ♻️, refactoring agent.\nMission: Improve readability and structure with ZERO behavior change.`,
+            'review': `You are "Lens" 👀, code review agent.\nMission: Flag logic errors, style violations, and security smells.`
         };
 
         if (skill === 'codegen') {
@@ -272,7 +317,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     }
 
     private async _handleUserMessage(message: string) {
-        // Auto-create session if needed
         if (!this._activeSessionId) {
             this._createNewSession();
             await new Promise(r => setTimeout(r, 50));
@@ -280,24 +324,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
         this._addHistory('user', message);
 
-        const lower = message.toLowerCase().trim();
-        const greetings = ['hi', 'hello', 'hey', 'menu'];
+        // ... (Greetings logic could go here)
 
-        if (lower === 'help' || lower.startsWith('help ') || lower === '?') {
-            this._showHelp();
-            return;
-        }
-
-        if (greetings.some(g => lower === g)) {
-            this._addHistory('jules', "👋 **Hi! I'm Jules.**\nI'm connected. What shall we do?", [
-                { label: '📊 Status', cmd: 'status' },
-                { label: '📂 Git Ops', cmd: 'skill:git' },
-                { label: '✨ Code Gen', cmd: 'skill:codegen' }
-            ]);
-            return;
-        }
-
-        // Delegate to Backend
         this._setLoading(true);
         const session = this._sessions.find(s => s.id === this._activeSessionId)!;
         await this._backend.sendMessage(session, message, this._getCwd());
@@ -308,7 +336,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         return vscode.workspace.workspaceFolders?.[0].uri.fsPath || '.';
     }
 
-    // --- HELPER: History Management ---
     private _addHistory(sender: 'user' | 'jules' | 'system', text: string, buttons?: { label: string, cmd: string }[]) {
         if (!this._activeSessionId) return;
         this._appendMessageToSession(this._activeSessionId, sender, text, buttons);
@@ -317,13 +344,11 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     private _appendMessageToSession(sessionId: string, sender: 'user' | 'jules' | 'system', text: string, buttons?: { label: string, cmd: string }[]) {
         const session = this._sessions.find(s => s.id === sessionId);
         if (session) {
-            // Auto-rename
             if (sender === 'user' && session.title === 'New Task') {
                 session.title = text.length > 25 ? text.substring(0, 25) + '...' : text;
                 this._updateView();
             }
 
-            // Stream append check
             const last = session.messages[session.messages.length - 1];
             if (sender === 'jules' && last && last.sender === 'jules') {
                 last.text += `\n${text}`;
@@ -374,6 +399,25 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 .cmd-usage { font-family: monospace; font-size: 10px; background: var(--input-bg); padding: 4px; border-radius: 4px; color: var(--vscode-descriptionForeground); word-break: break-all; }
                 .cmd-actions { display: flex; gap: 8px; margin-top: 8px; }
                 .cmd-btn { padding: 2px 8px; font-size: 11px; cursor: pointer; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 2px; }
+                /* CLI COMMAND CENTER */
+                .cli-toolbox { background: var(--jules-bg); padding: 8px; border-bottom: 1px solid var(--border); display: none; }
+                .cli-toolbox.visible { display: block; }
+                .cli-toolbox h3 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: var(--vscode-descriptionForeground); }
+
+                .toolbox-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+                .tool-btn {
+                    background: var(--vscode-button-secondaryBackground);
+                    color: var(--vscode-button-secondaryForeground);
+                    border: 1px solid var(--border);
+                    padding: 4px;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    font-size: 11px;
+                    text-align: center;
+                }
+                .tool-btn:hover { background: var(--vscode-list-hoverBackground); }
+                .tool-section { margin-bottom: 8px; }
+                .tool-section:last-child { margin-bottom: 0; }
 
                 /* SESSION LIST */
                 #session-list-view { padding: 10px; overflow-y: auto; }
@@ -392,12 +436,10 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 #active-session-title { font-weight: 600; font-size: 13px; }
 
                 .chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-                
                 .message { padding: 10px 14px; border-radius: 8px; max-width: 90%; word-wrap: break-word; line-height: 1.5; font-size: 13px; }
                 .user { align-self: flex-end; background: var(--user-bg); color: var(--user-text); }
                 .jules { align-self: flex-start; background: var(--jules-bg); border: 1px solid var(--border); white-space: pre-wrap; font-family: monospace; }
                 .system { align-self: center; font-style: italic; color: var(--vscode-descriptionForeground); font-size: 12px; text-align: center; margin: 10px 0; }
-
                 .msg-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
                 .msg-btn { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
 
@@ -430,13 +472,44 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
             
             <!-- SESSION LIST VIEW -->
             <div id="session-list-view" class="view active">
+
+                <!-- CLI COMMAND CENTER -->
+                <div id="cli-toolbox" class="cli-toolbox">
+                    <details open>
+                    <summary><strong>Jules CLI Tools</strong></summary>
+                    <div style="margin-top: 8px;">
+                        <div class="tool-section">
+                            <h3>Session Management</h3>
+                            <div class="toolbox-grid">
+                                <div class="tool-btn" onclick="sendCmd('remote-list-session')">List Sessions</div>
+                                <div class="tool-btn" onclick="createNewSession()">New Session</div>
+                                <div class="tool-btn" onclick="sendCmd('remote-pull')">Pull Session</div>
+                                <div class="tool-btn" onclick="sendCmd('remote-list-repo')">List Repos</div>
+                            </div>
+                        </div>
+                        <div class="tool-section">
+                            <h3>Authentication</h3>
+                            <div class="toolbox-grid">
+                                <div class="tool-btn" onclick="sendCmd('login')">Login</div>
+                                <div class="tool-btn" onclick="sendCmd('logout')">Logout</div>
+                            </div>
+                        </div>
+                         <div class="tool-section">
+                            <h3>System</h3>
+                            <div class="toolbox-grid">
+                                <div class="tool-btn" onclick="sendCmd('version')">Check Version</div>
+                                <div class="tool-btn" onclick="sendCmd('help')">Show Help</div>
+                            </div>
+                        </div>
+                    </div>
+                    </details>
+                </div>
+
                 <div class="session-header">
                     <h2>My Tasks</h2>
                     <button class="btn-new" onclick="createNewSession()">+ New Task</button>
                 </div>
-                <div id="session-list">
-                    <!-- Session items injected here -->
-                </div>
+                <div id="session-list"></div>
             </div>
 
             <!-- COMMANDS VIEW -->
@@ -494,6 +567,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 const authChip = document.getElementById('auth-chip');
                 const authLabel = document.getElementById('auth-label');
                 const signOutChip = document.getElementById('signout-chip');
+                const cliToolbox = document.getElementById('cli-toolbox');
 
                 const commands = ${cmdList};
                 let currentSessionId = null;
@@ -560,6 +634,9 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 function backToList() {
                     vscode.postMessage({ type: 'backToList' });
                 }
+                function createNewSession() { vscode.postMessage({ type: 'newSession' }); }
+                function switchSession(id) { vscode.postMessage({ type: 'switchSession', id: id }); }
+                function backToList() { vscode.postMessage({ type: 'backToList' }); }
 
                 function renderSessionList(sessions) {
                     sessionListEl.innerHTML = '';
@@ -567,15 +644,11 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                         sessionListEl.innerHTML = '<div style="text-align:center; margin-top:20px; color:var(--vscode-descriptionForeground)">No active tasks.<br>Click "+ New Task" to start.</div>';
                         return;
                     }
-                    
                     sessions.forEach(s => {
                         const div = document.createElement('div');
                         div.className = 'session-item';
                         div.onclick = () => switchSession(s.id);
-                        div.innerHTML = \`
-                            <span class="session-title">\${escapeHtml(s.title)}</span>
-                            <div class="session-preview">\${escapeHtml(s.preview)}</div>
-                        \`;
+                        div.innerHTML = \`<span class="session-title">\${escapeHtml(s.title)}</span><div class="session-preview">\${escapeHtml(s.preview)}</div>\`;
                         sessionListEl.appendChild(div);
                     });
                 }
@@ -595,7 +668,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     }
                 }
 
-                // --- CHAT RENDERING ---
                 function renderChat(messages) {
                     chatContainer.innerHTML = '';
                     messages.forEach(addMessageToDom);
@@ -605,7 +677,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     const div = document.createElement('div');
                     div.className = 'message ' + msg.sender;
                     div.innerText = msg.text;
-                    
                     if (msg.buttons) {
                         const btns = document.createElement('div');
                         btns.className = 'msg-buttons';
@@ -625,7 +696,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     chatContainer.scrollTop = chatContainer.scrollHeight;
                 }
 
-                // --- INPUT HANDLING ---
                 inp.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && inp.value) {
                         vscode.postMessage({ type: 'sendMessage', value: inp.value });
@@ -637,46 +707,42 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 function sendCmd(cmd) { vscode.postMessage({ type: 'command', value: cmd }); }
                 function escapeHtml(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
-                // --- EVENT LISTENER ---
                 window.addEventListener('message', event => {
-                    const { type, activeSessionId, sessions, activeMessages, message, text, value, sessionId } = event.data;
+                    const { type, activeSessionId, sessions, activeMessages, message, text, value, sessionId, mode } = event.data;
 
                     if (type === 'stateUpdate') {
                         currentSessionId = activeSessionId;
                         renderSessionList(sessions);
                         
+                        // Toggle CLI Toolbox
+                        if (mode === 'api') cliToolbox.classList.remove('visible');
+                        else cliToolbox.classList.add('visible');
+
                         if (activeSessionId) {
                             showView('chat');
                             renderChat(activeMessages);
-                            // Update title
                             const active = sessions.find(s => s.id === activeSessionId);
                             if (active) sessionTitleEl.innerText = active.title;
                         } else {
                             showView('list');
                         }
                     }
-                    else if (type === 'addMessage') {
-                        // Only append if it belongs to current view
-                        if (sessionId === currentSessionId) {
-                            addMessageToDom(message);
-                        }
+                    else if (type === 'addMessage' && sessionId === currentSessionId) {
+                        addMessageToDom(message);
                     }
-                    else if (type === 'updateLastMessage') {
-                         if (sessionId === currentSessionId) {
-                            const lastMsg = chatContainer.lastElementChild;
-                            if (lastMsg) {
-                                lastMsg.innerText = text;
-                                chatContainer.scrollTop = chatContainer.scrollHeight;
-                            }
-                         }
+                    else if (type === 'updateLastMessage' && sessionId === currentSessionId) {
+                        const lastMsg = chatContainer.lastElementChild;
+                        if (lastMsg) {
+                            lastMsg.innerText = text;
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }
                     }
                     else if (type === 'setLoading') {
                         loader.classList.toggle('active', value);
                     }
                     else if (type === 'setAuthStatus') {
-                        if (!authChip || !authLabel || !signOutChip) return;
                         const status = value || 'unknown';
-                        authChip.classList.remove('connected', 'missing', 'unknown', 'signed-out');
+                        authChip.classList.remove('connected', 'missing', 'unknown', 'signed-out', 'key-missing');
                         if (status === 'signed-in') {
                             authChip.classList.add('connected');
                             authLabel.textContent = 'Connected';

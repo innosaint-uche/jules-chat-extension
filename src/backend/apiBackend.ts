@@ -7,6 +7,7 @@ const API_BASE = 'https://jules.googleapis.com/v1alpha';
 
 export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
+    private _activePollers = new Map<string, NodeJS.Timeout>();
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -55,42 +56,44 @@ export class ApiBackend implements JulesBackend {
              return;
         }
 
-        this._onOutput('🚀 Dispatching to Jules API...', 'jules', session);
-
-        // 1. Get Source (Repo)
-        const repoSlug = await this._getGitHubRepoSlug(cwd);
-        if (!repoSlug) {
-            this._onOutput('⚠️ Could not detect GitHub repo. Please ensure a remote is configured.', 'system', session);
-            return;
-        }
-
-        // 2. Resolve Source ID
-        const sourceName = await this._resolveSource(repoSlug);
-        if (!sourceName) {
-            this._onOutput(`⚠️ Source not found for repo: ${repoSlug}. Ensure you have installed the Jules GitHub app.`, 'system', session);
-            return;
-        }
-
-        // 3. Create Session or Send Message?
-        // In the current CLI model, every "task" is a new session if passed via `remote new`.
-        // However, the chat interface implies a conversation.
-        // If the session ID in `session.id` is purely local (timestamp), we need to create a remote session first.
-
-        // Check if we already have a remote session ID mapped to this local session
-        // For simplicity in this v1, let's assume we create a NEW session for the first message,
-        // and subsequent messages might be supported if we stored the remote ID.
-        // BUT: The current extension UI creates a new "ChatSession" object for every task.
-        // So we treat this message as the prompt for a NEW session.
-
         try {
-            const sessionData = await this._createSession(sourceName, message, cwd);
-            const remoteId = sessionData.id;
-            const remoteName = sessionData.name; // sessions/12345...
+            if (session.remoteId) {
+                // Continued conversation
+                this._onOutput('💬 Sending message to existing session...', 'jules', session);
+                await this._sendMessageToSession(session.remoteId, message);
 
-            this._onOutput(`✅ Session Created: ${remoteId}\nTitle: ${sessionData.title}`, 'jules', session);
+                // Ensure polling is active (restart it to extend timeout)
+                this._pollActivities(session.remoteId, session);
+            } else {
+                // New Session
+                this._onOutput('🚀 Dispatching to Jules API...', 'jules', session);
 
-            // 4. Poll for activities
-            this._pollActivities(remoteName, session);
+                // 1. Get Source (Repo)
+                const repoSlug = await this._getGitHubRepoSlug(cwd);
+                if (!repoSlug) {
+                    this._onOutput('⚠️ Could not detect GitHub repo. Please ensure a remote is configured.', 'system', session);
+                    return;
+                }
+
+                // 2. Resolve Source ID
+                const sourceName = await this._resolveSource(repoSlug);
+                if (!sourceName) {
+                    this._onOutput(`⚠️ Source not found for repo: ${repoSlug}. Ensure you have installed the Jules GitHub app.`, 'system', session);
+                    return;
+                }
+
+                const sessionData = await this._createSession(sourceName, message, cwd);
+                const remoteName = sessionData.name; // sessions/12345...
+
+                // Store remote ID for future messages
+                session.remoteId = remoteName;
+                if (sessionData.title) session.title = sessionData.title;
+
+                this._onOutput(`✅ Session Created: ${sessionData.id}\nTitle: ${sessionData.title || 'Untitled'}`, 'jules', session);
+
+                // 4. Poll for activities
+                this._pollActivities(remoteName, session);
+            }
 
         } catch (error: any) {
             this._onOutput(`❌ API Error: ${error.message}`, 'system', session);
@@ -173,16 +176,38 @@ export class ApiBackend implements JulesBackend {
         });
     }
 
-    private async _pollActivities(sessionName: string, chatSession: ChatSession) {
-        let lastActivityCount = 0;
-        let currentDelay = 1000; // Start fast (1s)
-        const maxDelay = 10000; // Cap at 10s
-        const startTime = Date.now();
-        const timeoutMs = 5 * 60 * 1000; // 5 minutes timeout
+    private async _sendMessageToSession(remoteId: string, message: string): Promise<void> {
+        const res = await fetch(`${API_BASE}/${remoteId}:sendMessage`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': this._apiKey!
+            },
+            body: JSON.stringify({
+                message: { text: message }
+            })
+        });
+        const data = await res.json() as any;
+        if (data.error) throw new Error(data.error.message);
+    }
 
-        // Optimization: Use exponential backoff to reduce API load while maintaining responsiveness
-        const poll = async () => {
-            if (Date.now() - startTime > timeoutMs) {
+    private async _pollActivities(sessionName: string, chatSession: ChatSession) {
+        // Clear existing poller for this session if any
+        if (this._activePollers.has(sessionName)) {
+            clearInterval(this._activePollers.get(sessionName)!);
+        }
+
+        // Initialize from session state to avoid reprocessing old activities
+        let lastActivityCount = chatSession.lastActivityCount || 0;
+        const pollInterval = 3000;
+        const maxPolls = 200; // Increased to 10 minutes (3s * 200 = 600s)
+        let polls = 0;
+
+        const interval = setInterval(async () => {
+            polls++;
+            if (polls > maxPolls) {
+                clearInterval(interval);
+                this._activePollers.delete(sessionName);
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }
@@ -198,23 +223,18 @@ export class ApiBackend implements JulesBackend {
                 if (data.activities && data.activities.length > lastActivityCount) {
                     hasNewActivity = true;
                     const newActivities = data.activities.slice(lastActivityCount);
+                    // Update local counter
                     lastActivityCount = data.activities.length;
+                    // Persist to session object so next poll/message knows where to start
+                    chatSession.lastActivityCount = lastActivityCount;
 
                     for (const act of newActivities) {
-                        // We only care about Agent activities or interesting status updates
-                        // The structure of Activity needs to be inspected.
-                        // Assuming simple text output for now based on common API patterns.
-                        // Real schema might have 'message', 'toolUse', etc.
-
-                        // Based on docs: "To see the agent’s response, list the activities again."
-                        // We'll dump the activity content.
                         let text = '';
                         if (act.message) text = act.message.text || JSON.stringify(act.message);
                         else if (act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
-                        else text = JSON.stringify(act); // Fallback
-
-                        // Filter out user's own messages to avoid duplication if API echoes them
-                        // (Simple heuristic: if text equals original prompt, skip)
+                        // Avoid raw dumping unknown activities unless essential
+                        else if (act.type === 'PLAN_UPDATE') text = '📋 Plan updated';
+                        else text = ''; // Skip noisy unknown events
 
                         if (text) {
                             this._onOutput(text, 'jules', chatSession);

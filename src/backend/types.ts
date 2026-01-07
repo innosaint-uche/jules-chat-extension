@@ -9,6 +9,10 @@ export interface ChatSession {
     title: string;
     timestamp: number;
     messages: ChatMessage[];
+    /** The remote session ID from the Jules API (e.g., 'sessions/1234') */
+    remoteId?: string;
+    /** The number of activities already processed for this session */
+    lastActivityCount?: number;
 }
 
 export type JulesAuthStatus = 'signed-in' | 'signed-out' | 'cli-missing' | 'key-missing' | 'unknown';
