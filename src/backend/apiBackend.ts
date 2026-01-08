@@ -201,7 +201,11 @@ export class ApiBackend implements JulesBackend {
         }
 
         // Initialize state
-        let lastActivityCount = chatSession.lastActivityCount || 0;
+        // Use a Set to track processed IDs to avoid duplicates/missed messages
+        if (!chatSession.processedActivityIds) {
+            chatSession.processedActivityIds = [];
+        }
+
         let polls = 0;
         const maxPolls = 600; // ~10 minutes
         const maxDelay = 10000;
@@ -230,21 +234,34 @@ export class ApiBackend implements JulesBackend {
                 if (!state.active) return; // Check again after await
 
                 let hasNewActivity = false;
-                if (data.activities && data.activities.length > lastActivityCount) {
-                    hasNewActivity = true;
-                    const newActivities = data.activities.slice(lastActivityCount);
-                    lastActivityCount = data.activities.length;
-                    chatSession.lastActivityCount = lastActivityCount;
+                const activities = data.activities || [];
 
-                    for (const act of newActivities) {
-                        let text = '';
-                        if (act.message) text = act.message.text || JSON.stringify(act.message);
-                        else if (act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
-                        else if (act.type === 'PLAN_UPDATE') text = '📋 Plan updated';
-                        else text = '';
-
-                        if (text) this._onOutput(text, 'jules', chatSession);
+                for (const act of activities) {
+                    // Check if already processed
+                    if (chatSession.processedActivityIds!.includes(act.name)) {
+                        continue;
                     }
+
+                    // Mark as seen immediately
+                    chatSession.processedActivityIds!.push(act.name);
+                    hasNewActivity = true;
+
+                    // Skip user's own messages (we show them optimistically)
+                    if (act.actor === 'user' || (act.message && act.message.author === 'user')) {
+                        continue;
+                    }
+
+                    let text = '';
+                    if (act.message) text = act.message.text || JSON.stringify(act.message);
+                    else if (act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
+                    else if (act.type === 'PLAN_UPDATE') text = '📋 Plan updated';
+
+                    // Fallback for unknown types but potentially useful info
+                    if (!text && act.type) {
+                        text = `[Activity: ${act.type}]`;
+                    }
+
+                    if (text) this._onOutput(text, 'jules', chatSession);
                 }
 
                 if (hasNewActivity) {
