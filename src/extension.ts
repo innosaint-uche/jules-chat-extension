@@ -136,6 +136,12 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
     // --- Command Handling ---
     private async _handleCommand(cmd: string) {
+        // If it looks like a VSCode command (e.g. jules.setApiKey), execute it.
+        if (cmd.startsWith('jules.') && cmd !== 'jules login' && cmd !== 'jules logout') {
+             await vscode.commands.executeCommand(cmd);
+             return;
+        }
+
         const cwd = this._getCwd();
 
         switch (cmd) {

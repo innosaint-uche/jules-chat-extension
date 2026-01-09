@@ -13,6 +13,8 @@ export interface ChatSession {
     remoteId?: string;
     /** The number of activities already processed for this session */
     lastActivityCount?: number;
+    /** The IDs of activities already processed to prevent duplicates */
+    processedActivityIds?: string[];
 }
 
 export type JulesAuthStatus = 'signed-in' | 'signed-out' | 'cli-missing' | 'key-missing' | 'unknown';

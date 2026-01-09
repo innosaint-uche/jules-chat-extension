@@ -33,25 +33,35 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         actionId: 'status'
     },
     {
+        command: 'jules remote list --repo',
+        description: 'List configured repository sources.',
+        usage: 'jules remote list --repo',
+        category: 'session',
+        actionId: 'remote-list-repo'
+    },
+    {
         command: 'jules remote pull',
         description: 'Download code changes from a session to your local files.',
         usage: 'jules remote pull --session <session-id>',
-        category: 'session'
+        category: 'session',
+        actionId: 'remote-pull'
     },
     {
         command: 'jules version',
         description: 'Display the installed version of the Jules CLI.',
-        category: 'misc'
+        category: 'misc',
+        actionId: 'version'
     },
     {
         command: 'jules help',
         description: 'Show help information for the CLI.',
-        category: 'misc'
+        category: 'misc',
+        actionId: 'help'
     },
     {
         command: 'Configure API Key',
         description: 'Manually enter your Jules API Key for direct API mode.',
         category: 'auth',
-        actionId: 'apiKey'
+        actionId: 'jules.setApiKey' // This is a VSCode command ID
     }
 ];
