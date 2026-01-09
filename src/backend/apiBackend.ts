@@ -7,7 +7,7 @@ const API_BASE = 'https://jules.googleapis.com/v1alpha';
 
 export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
-    private _activePollers = new Map<string, NodeJS.Timeout>();
+    private _activePollers = new Map<string, { timer: NodeJS.Timeout, active: boolean }>();
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -192,7 +192,7 @@ export class ApiBackend implements JulesBackend {
     }
 
     private async _pollActivities(sessionName: string, chatSession: ChatSession) {
-        // Clear existing poller for this session if any
+        // Cancel existing poller
         if (this._activePollers.has(sessionName)) {
             clearTimeout(this._activePollers.get(sessionName)!);
         }
@@ -201,6 +201,14 @@ export class ApiBackend implements JulesBackend {
         let lastActivityCount = chatSession.lastActivityCount || 0;
         const maxPolls = 600; // 10-30 minutes depending on backoff
         let polls = 0;
+        const maxPolls = 600; // ~10 minutes
+        const maxDelay = 10000;
+        let currentDelay = 1000;
+
+        const state = { active: true, timer: setTimeout(() => {}, 0) }; // Placeholder timer
+
+        const poll = async () => {
+            if (!state.active) return; // Prevent zombie execution
 
         let currentDelay = 1000;
         const maxDelay = 10000;
@@ -214,38 +222,44 @@ export class ApiBackend implements JulesBackend {
             }
 
             try {
-                // The sessionName is "sessions/{id}"
                 const res = await fetch(`${API_BASE}/${sessionName}/activities?pageSize=50`, {
                     headers: { 'x-goog-api-key': this._apiKey! }
                 });
                 const data = await res.json() as any;
 
+                if (!state.active) return; // Check again after await
+
                 let hasNewActivity = false;
-                if (data.activities && data.activities.length > lastActivityCount) {
-                    hasNewActivity = true;
-                    const newActivities = data.activities.slice(lastActivityCount);
-                    // Update local counter
-                    lastActivityCount = data.activities.length;
-                    // Persist to session object so next poll/message knows where to start
-                    chatSession.lastActivityCount = lastActivityCount;
+                const activities = data.activities || [];
 
-                    for (const act of newActivities) {
-                        let text = '';
-                        if (act.message) text = act.message.text || JSON.stringify(act.message);
-                        else if (act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
-                        // Avoid raw dumping unknown activities unless essential
-                        else if (act.type === 'PLAN_UPDATE') text = '📋 Plan updated';
-                        else text = ''; // Skip noisy unknown events
-
-                        if (text) {
-                            this._onOutput(text, 'jules', chatSession);
-                        }
+                for (const act of activities) {
+                    // Check if already processed
+                    if (chatSession.processedActivityIds!.includes(act.name)) {
+                        continue;
                     }
+
+                    // Mark as seen immediately
+                    chatSession.processedActivityIds!.push(act.name);
+                    hasNewActivity = true;
+
+                    // Skip user's own messages (we show them optimistically)
+                    if (act.actor === 'user' || (act.message && act.message.author === 'user')) {
+                        continue;
+                    }
+
+                    let text = '';
+                    if (act.message) text = act.message.text || JSON.stringify(act.message);
+                    else if (act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
+                    else if (act.type === 'PLAN_UPDATE') text = '📋 Plan updated';
+
+                    // Fallback for unknown types but potentially useful info
+                    if (!text && act.type) {
+                        text = `[Activity: ${act.type}]`;
+                    }
+
+                    if (text) this._onOutput(text, 'jules', chatSession);
                 }
 
-                // Adaptive Backoff:
-                // If we found activity, reset delay to be snappy for follow-ups.
-                // If silence, back off to save resources.
                 if (hasNewActivity) {
                     currentDelay = 1000;
                 } else {
