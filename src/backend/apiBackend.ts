@@ -23,7 +23,7 @@ export class ApiBackend implements JulesBackend {
     async login(cwd: string): Promise<void> {
         const key = await vscode.window.showInputBox({
             title: 'Enter Jules API Key',
-            prompt: 'Paste your key from jules.google/settings',
+            prompt: 'Please enter your Jules API Key (from jules.google/settings) to enable the flexible chat interface.',
             password: true,
             ignoreFocusOut: true
         });
@@ -32,7 +32,7 @@ export class ApiBackend implements JulesBackend {
             await this._context.secrets.store('jules.apiKey', key);
             this._apiKey = key;
             this._onStatusChange('signed-in');
-            vscode.window.showInformationMessage('Jules API Key saved successfully.');
+            vscode.window.showInformationMessage('Jules API Key saved successfully. Flexible chat is now enabled.');
         }
     }
 
@@ -194,18 +194,12 @@ export class ApiBackend implements JulesBackend {
     private async _pollActivities(sessionName: string, chatSession: ChatSession) {
         // Cancel existing poller
         if (this._activePollers.has(sessionName)) {
-            const existing = this._activePollers.get(sessionName)!;
-            existing.active = false;
-            clearTimeout(existing.timer);
-            this._activePollers.delete(sessionName);
+            clearTimeout(this._activePollers.get(sessionName)!);
         }
 
-        // Initialize state
-        // Use a Set to track processed IDs to avoid duplicates/missed messages
-        if (!chatSession.processedActivityIds) {
-            chatSession.processedActivityIds = [];
-        }
-
+        // Initialize from session state to avoid reprocessing old activities
+        let lastActivityCount = chatSession.lastActivityCount || 0;
+        const maxPolls = 600; // 10-30 minutes depending on backoff
         let polls = 0;
         const maxPolls = 600; // ~10 minutes
         const maxDelay = 10000;
@@ -216,12 +210,14 @@ export class ApiBackend implements JulesBackend {
         const poll = async () => {
             if (!state.active) return; // Prevent zombie execution
 
+        let currentDelay = 1000;
+        const maxDelay = 10000;
+
+        const poll = async () => {
             polls++;
             if (polls > maxPolls) {
-                if (state.active) {
-                    this._activePollers.delete(sessionName);
-                    this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
-                }
+                this._activePollers.delete(sessionName);
+                this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }
 
@@ -270,22 +266,20 @@ export class ApiBackend implements JulesBackend {
                     currentDelay = Math.min(currentDelay * 1.5, maxDelay);
                 }
 
-                if (state.active) {
-                    state.timer = setTimeout(poll, currentDelay);
-                }
-
             } catch (e) {
                 console.error('Polling error', e);
-                if (state.active) {
-                    currentDelay = Math.min(currentDelay * 2, maxDelay);
-                    state.timer = setTimeout(poll, currentDelay);
-                }
+                // Retry with backoff even on error
+                currentDelay = Math.min(currentDelay * 2, maxDelay);
             }
+
+            // Schedule next poll
+            const timer = setTimeout(poll, currentDelay);
+            this._activePollers.set(sessionName, timer);
         };
 
-        // Start the first poll immediately or after a short delay
-        state.timer = setTimeout(poll, currentDelay);
-        this._activePollers.set(sessionName, state);
+        // Start polling
+        const timer = setTimeout(poll, currentDelay);
+        this._activePollers.set(sessionName, timer);
     }
 
     // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
