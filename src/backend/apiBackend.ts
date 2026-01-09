@@ -23,7 +23,7 @@ export class ApiBackend implements JulesBackend {
     async login(cwd: string): Promise<void> {
         const key = await vscode.window.showInputBox({
             title: 'Enter Jules API Key',
-            prompt: 'Paste your key from jules.google/settings',
+            prompt: 'Please enter your Jules API Key (from jules.google/settings) to enable the flexible chat interface.',
             password: true,
             ignoreFocusOut: true
         });
@@ -32,7 +32,7 @@ export class ApiBackend implements JulesBackend {
             await this._context.secrets.store('jules.apiKey', key);
             this._apiKey = key;
             this._onStatusChange('signed-in');
-            vscode.window.showInformationMessage('Jules API Key saved successfully.');
+            vscode.window.showInformationMessage('Jules API Key saved successfully. Flexible chat is now enabled.');
         }
     }
 
@@ -194,19 +194,20 @@ export class ApiBackend implements JulesBackend {
     private async _pollActivities(sessionName: string, chatSession: ChatSession) {
         // Clear existing poller for this session if any
         if (this._activePollers.has(sessionName)) {
-            clearInterval(this._activePollers.get(sessionName)!);
+            clearTimeout(this._activePollers.get(sessionName)!);
         }
 
         // Initialize from session state to avoid reprocessing old activities
         let lastActivityCount = chatSession.lastActivityCount || 0;
-        const pollInterval = 3000;
-        const maxPolls = 200; // Increased to 10 minutes (3s * 200 = 600s)
+        const maxPolls = 600; // 10-30 minutes depending on backoff
         let polls = 0;
 
-        const interval = setInterval(async () => {
+        let currentDelay = 1000;
+        const maxDelay = 10000;
+
+        const poll = async () => {
             polls++;
             if (polls > maxPolls) {
-                clearInterval(interval);
                 this._activePollers.delete(sessionName);
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
@@ -251,18 +252,20 @@ export class ApiBackend implements JulesBackend {
                     currentDelay = Math.min(currentDelay * 1.5, maxDelay);
                 }
 
-                setTimeout(poll, currentDelay);
-
             } catch (e) {
                 console.error('Polling error', e);
                 // Retry with backoff even on error
                 currentDelay = Math.min(currentDelay * 2, maxDelay);
-                setTimeout(poll, currentDelay);
             }
+
+            // Schedule next poll
+            const timer = setTimeout(poll, currentDelay);
+            this._activePollers.set(sessionName, timer);
         };
 
         // Start polling
-        setTimeout(poll, currentDelay);
+        const timer = setTimeout(poll, currentDelay);
+        this._activePollers.set(sessionName, timer);
     }
 
     // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
