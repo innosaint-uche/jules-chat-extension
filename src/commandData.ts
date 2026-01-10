@@ -2,11 +2,12 @@ export interface CommandDefinition {
     command: string;
     description: string;
     usage?: string;
-    category: 'auth' | 'session' | 'git' | 'misc';
+    category: 'auth' | 'session' | 'git' | 'misc' | 'config';
     actionId?: string; // If we can trigger it directly
 }
 
 export const CLI_COMMANDS: CommandDefinition[] = [
+    // --- AUTHENTICATION ---
     {
         command: 'jules login',
         description: 'Authenticate the CLI with your Google account.',
@@ -20,6 +21,14 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         actionId: 'logout'
     },
     {
+        command: 'jules auth check',
+        description: 'Verify current authentication status.',
+        category: 'auth',
+        actionId: 'status'
+    },
+
+    // --- SESSION MANAGEMENT ---
+    {
         command: 'jules remote new',
         description: 'Start a new chat session with the agent.',
         usage: 'jules remote new --repo <owner/repo> --session "Your prompt"',
@@ -30,14 +39,13 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         description: 'List active sessions and their status.',
         usage: 'jules remote list --session',
         category: 'session',
-        actionId: 'status'
+        actionId: 'remote-list-session'
     },
     {
-        command: 'jules remote list --repo',
-        description: 'List configured repository sources.',
-        usage: 'jules remote list --repo',
-        category: 'session',
-        actionId: 'remote-list-repo'
+        command: 'jules remote show',
+        description: 'Show details of a specific session.',
+        usage: 'jules remote show <session-id>',
+        category: 'session'
     },
     {
         command: 'jules remote pull',
@@ -47,12 +55,48 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         actionId: 'remote-pull'
     },
     {
+        command: 'jules remote delete',
+        description: 'Delete a session permanently.',
+        usage: 'jules remote delete <session-id>',
+        category: 'session'
+    },
+    {
+        command: 'jules remote logs',
+        description: 'Fetch logs/history for a specific session.',
+        usage: 'jules remote logs <session-id>',
+        category: 'session'
+    },
+
+    // --- REPOSITORY SOURCES ---
+    {
         command: 'jules remote list --repo',
         description: 'List available repositories (sources) for the agent.',
         usage: 'jules remote list --repo',
         category: 'session',
         actionId: 'remote-list-repo'
     },
+
+    // --- CONFIGURATION ---
+    {
+        command: 'jules config list',
+        description: 'List all current configuration settings.',
+        usage: 'jules config list',
+        category: 'config'
+    },
+    {
+        command: 'jules config get',
+        description: 'Get the value of a configuration key.',
+        usage: 'jules config get <key>',
+        category: 'config'
+    },
+    {
+        command: 'jules config set',
+        description: 'Set a configuration value.',
+        usage: 'jules config set <key> <value>',
+        category: 'config'
+    },
+
+    // --- GIT INTEGRATION ---
     {
         command: 'jules git status',
         description: 'Show the working tree status.',
@@ -66,6 +110,20 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
+        command: 'jules git pull',
+        description: 'Fetch from and integrate with another repository or a local branch.',
+        usage: 'git pull origin main',
+        category: 'git'
+    },
+    {
+        command: 'jules git push',
+        description: 'Update remote refs along with associated objects.',
+        usage: 'git push origin main',
+        category: 'git'
+    },
+
+    // --- MISC ---
+    {
         command: 'jules version',
         description: 'Display the installed version of the Jules CLI.',
         category: 'misc',
@@ -76,6 +134,11 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         description: 'Show help information for the CLI.',
         category: 'misc',
         actionId: 'help'
+    },
+    {
+        command: 'jules update',
+        description: 'Update the Jules CLI to the latest version.',
+        category: 'misc'
     },
     {
         command: 'Configure API Key',

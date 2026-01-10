@@ -7,7 +7,8 @@ const API_BASE = 'https://jules.googleapis.com/v1alpha';
 
 export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
-    private _activePollers = new Map<string, { timer: NodeJS.Timeout, active: boolean }>();
+    private _activePollers = new Map<string, NodeJS.Timeout>();
+    private _pollerStates = new Map<string, boolean>();
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -96,7 +97,8 @@ export class ApiBackend implements JulesBackend {
             }
 
         } catch (error: any) {
-            this._onOutput(`❌ API Error: ${error.message}`, 'system', session);
+            const msg = error instanceof Error ? error.message : String(error);
+            this._onOutput(`❌ API Error: ${msg}`, 'system', session);
         }
     }
 
@@ -113,7 +115,8 @@ export class ApiBackend implements JulesBackend {
             const list = (data.sessions || []).map((s: any) => `- **${s.title}** (ID: ${s.id})`).join('\n');
             this._onOutput(`Recent Sessions:\n${list || 'No sessions found.'}`, 'jules', session);
         } catch (e: any) {
-            this._onOutput(`Error listing sessions: ${e.message}`, 'system', session);
+            const msg = e instanceof Error ? e.message : String(e);
+            this._onOutput(`Error listing sessions: ${msg}`, 'system', session);
         }
     }
 
@@ -195,28 +198,31 @@ export class ApiBackend implements JulesBackend {
         // Cancel existing poller
         if (this._activePollers.has(sessionName)) {
             clearTimeout(this._activePollers.get(sessionName)!);
+            this._pollerStates.set(sessionName, false); // Mark old as inactive
         }
 
-        // Initialize from session state to avoid reprocessing old activities
-        let lastActivityCount = chatSession.lastActivityCount || 0;
-        const maxPolls = 600; // 10-30 minutes depending on backoff
-        let polls = 0;
+        // Initialize state
         const maxPolls = 600; // ~10 minutes
         const maxDelay = 10000;
+        let polls = 0;
         let currentDelay = 1000;
 
-        const state = { active: true, timer: setTimeout(() => {}, 0) }; // Placeholder timer
+        // Ensure processedActivityIds is initialized
+        if (!chatSession.processedActivityIds) {
+            chatSession.processedActivityIds = [];
+        }
+
+        // Set active state
+        this._pollerStates.set(sessionName, true);
 
         const poll = async () => {
-            if (!state.active) return; // Prevent zombie execution
+            // Check if this poller was cancelled
+            if (!this._pollerStates.get(sessionName)) return;
 
-        let currentDelay = 1000;
-        const maxDelay = 10000;
-
-        const poll = async () => {
             polls++;
             if (polls > maxPolls) {
                 this._activePollers.delete(sessionName);
+                this._pollerStates.delete(sessionName);
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }
@@ -227,10 +233,14 @@ export class ApiBackend implements JulesBackend {
                 });
                 const data = await res.json() as any;
 
-                if (!state.active) return; // Check again after await
+                // Check again after await
+                if (!this._pollerStates.get(sessionName)) return;
 
                 let hasNewActivity = false;
                 const activities = data.activities || [];
+
+                // Sort by create time if needed, but API usually returns chronological or reverse
+                // We'll iterate and check IDs.
 
                 for (const act of activities) {
                     // Check if already processed
@@ -262,6 +272,7 @@ export class ApiBackend implements JulesBackend {
 
                 if (hasNewActivity) {
                     currentDelay = 1000;
+                    polls = 0; // Reset timeout counter on activity
                 } else {
                     currentDelay = Math.min(currentDelay * 1.5, maxDelay);
                 }
@@ -272,9 +283,11 @@ export class ApiBackend implements JulesBackend {
                 currentDelay = Math.min(currentDelay * 2, maxDelay);
             }
 
-            // Schedule next poll
-            const timer = setTimeout(poll, currentDelay);
-            this._activePollers.set(sessionName, timer);
+            // Schedule next poll if still active
+            if (this._pollerStates.get(sessionName)) {
+                const timer = setTimeout(poll, currentDelay);
+                this._activePollers.set(sessionName, timer);
+            }
         };
 
         // Start polling
