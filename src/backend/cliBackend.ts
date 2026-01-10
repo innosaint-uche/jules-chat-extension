@@ -84,12 +84,12 @@ export class CliBackend implements JulesBackend {
         const child = this._spawnCli(command, args, cwd);
         let repoHelpShown = false;
 
-        child.stdout.on('data', (data) => {
+        child.stdout.on('data', (data: any) => {
             const output = data.toString().trim();
             if (output) this._onOutput(output, 'jules', session);
         });
 
-        child.stderr.on('data', (data) => {
+        child.stderr.on('data', (data: any) => {
             const output = data.toString().trim();
             if (!output) return;
             this._onOutput(`Checking: ${output}`, 'jules', session);
@@ -100,11 +100,11 @@ export class CliBackend implements JulesBackend {
             }
         });
 
-        child.on('error', (err) => {
+        child.on('error', (err: any) => {
             this._onOutput(`❌ Execution Error: ${err.message}`, 'system', session);
         });
 
-        child.on('close', (code) => {
+        child.on('close', (code: any) => {
             if (code !== 0) {
                 this._onOutput(`\n[Process exited with code ${code}]`, 'jules', session);
             }
