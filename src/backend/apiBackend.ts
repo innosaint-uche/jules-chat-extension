@@ -12,6 +12,7 @@ export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
     private _activePollers = new Map<string, any>(); // Use any to avoid NodeJS.Timeout vs number issues
     private _pollerStates = new Map<string, { active: boolean }>();
+    private _repoSlugCache = new Map<string, string>(); // Cache for repo slug per CWD
 
     // Performance optimization: Local Set for fast deduplication of activities per session
     // This avoids O(N*M) checks where N is new activities and M is total history.
@@ -329,12 +330,17 @@ export class ApiBackend implements JulesBackend {
 
     // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
     private _getGitHubRepoSlug(cwd: string): Promise<string | null> {
+        if (this._repoSlugCache.has(cwd)) return Promise.resolve(this._repoSlugCache.get(cwd)!);
+
         return new Promise(resolve => {
             cp.exec('git remote get-url origin', { cwd }, (err, stdout) => {
                 const url = stdout.trim();
                 if (url) {
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
-                    if (match) resolve(match[1]);
+                    if (match) {
+                        this._repoSlugCache.set(cwd, match[1]);
+                        resolve(match[1]);
+                    }
                     else resolve(null);
                 } else {
                     resolve(null);
