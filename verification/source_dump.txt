@@ -1,3 +1,285 @@
+export interface CommandDefinition {
+    command: string;
+    description: string;
+    usage?: string;
+    category: 'auth' | 'session' | 'git' | 'config' | 'misc';
+    actionId?: string; // If we can trigger it directly
+}
+
+export const CLI_COMMANDS: CommandDefinition[] = [
+    // --- AUTHENTICATION ---
+    {
+        command: 'jules login',
+        description: 'Authenticate the CLI with your Google account.',
+        category: 'auth',
+        actionId: 'login'
+    },
+    {
+        command: 'jules logout',
+        description: 'Sign out and remove local credentials.',
+        category: 'auth',
+        actionId: 'logout'
+    },
+    {
+        command: 'Configure API Key',
+        description: 'Manually enter your Jules API Key for direct API mode.',
+        category: 'auth',
+        actionId: 'jules.setApiKey'
+    },
+
+    // --- SESSION MANAGEMENT ---
+    {
+        command: 'jules remote new',
+        description: 'Start a new chat session with the agent.',
+        usage: 'jules remote new --repo <owner/repo> --session "Your prompt"',
+        category: 'session'
+    },
+    {
+        command: 'jules remote list',
+        description: 'List active sessions and their status.',
+        usage: 'jules remote list --session',
+        category: 'session',
+        actionId: 'status'
+    },
+    {
+        command: 'jules remote list --repo',
+        description: 'List configured repository sources.',
+        usage: 'jules remote list --repo',
+        category: 'session',
+        actionId: 'remote-list-repo'
+    },
+    {
+        command: 'jules remote pull',
+        description: 'Download code changes from a session to your local files.',
+        usage: 'jules remote pull --session <session-id>',
+        category: 'session',
+        actionId: 'remote-pull'
+    },
+    {
+        command: 'jules remote delete',
+        description: 'Delete a specific session.',
+        usage: 'jules remote delete --session <session-id>',
+        category: 'session'
+    },
+    {
+        command: 'jules remote resume',
+        description: 'Resume an existing session context.',
+        usage: 'jules remote resume --session <session-id>',
+        category: 'session'
+    },
+
+    // --- CONFIGURATION ---
+    {
+        command: 'jules config list',
+        description: 'List all current configuration settings.',
+        category: 'config'
+    },
+    {
+        command: 'jules config get',
+        description: 'Get the value of a specific configuration key.',
+        usage: 'jules config get <key>',
+        category: 'config'
+    },
+    {
+        command: 'jules config set',
+        description: 'Set a configuration value.',
+        usage: 'jules config set <key> <value>',
+        category: 'config'
+    },
+
+    // --- GIT OPERATIONS (Setup & Config) ---
+    {
+        command: 'jules git init',
+        description: 'Initialize a new git repository.',
+        usage: 'git init',
+        category: 'git'
+    },
+    {
+        command: 'jules git clone',
+        description: 'Clone a repository into a new directory.',
+        usage: 'git clone <repository>',
+        category: 'git'
+    },
+    {
+        command: 'jules git config',
+        description: 'Get and set repository or global options.',
+        usage: 'git config --list',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote',
+        description: 'Manage set of tracked repositories.',
+        usage: 'git remote -v',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Basic Snapshotting) ---
+    {
+        command: 'jules git status',
+        description: 'Show the working tree status.',
+        usage: 'git status',
+        category: 'git'
+    },
+    {
+        command: 'jules git add',
+        description: 'Add file contents to the index.',
+        usage: 'git add <pathspec>',
+        category: 'git'
+    },
+    {
+        command: 'jules git commit',
+        description: 'Record changes to the repository.',
+        usage: 'git commit -m "message"',
+        category: 'git'
+    },
+    {
+        command: 'jules git diff',
+        description: 'Show changes between commits, commit and working tree, etc.',
+        usage: 'git diff',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Branching & Merging) ---
+    {
+        command: 'jules git branch',
+        description: 'List, create, or delete branches.',
+        usage: 'git branch',
+        category: 'git'
+    },
+    {
+        command: 'jules git checkout',
+        description: 'Switch branches or restore working tree files.',
+        usage: 'git checkout <branch>',
+        category: 'git'
+    },
+    {
+        command: 'jules git switch',
+        description: 'Switch branches (newer alternative to checkout).',
+        usage: 'git switch <branch>',
+        category: 'git'
+    },
+    {
+        command: 'jules git merge',
+        description: 'Join two or more development histories together.',
+        usage: 'git merge <branch>',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash',
+        description: 'Stash the changes in a dirty working directory away.',
+        usage: 'git stash',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash pop',
+        description: 'Apply the stashed changes and remove from stash list.',
+        usage: 'git stash pop',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Sharing & Updating) ---
+    {
+        command: 'jules git fetch',
+        description: 'Download objects and refs from another repository.',
+        usage: 'git fetch',
+        category: 'git'
+    },
+    {
+        command: 'jules git pull',
+        description: 'Fetch from and integrate with another repository or a local branch.',
+        usage: 'git pull <remote> <branch>',
+        category: 'git'
+    },
+    {
+        command: 'jules git push',
+        description: 'Update remote refs along with associated objects.',
+        usage: 'git push <remote> <branch>',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Inspection & Comparison) ---
+    {
+        command: 'jules git log',
+        description: 'Show commit logs.',
+        usage: 'git log --oneline --graph',
+        category: 'git'
+    },
+    {
+        command: 'jules git show',
+        description: 'Show various types of objects (commits, tags, etc.).',
+        usage: 'git show <object>',
+        category: 'git'
+    },
+    {
+        command: 'jules git blame',
+        description: 'Show what revision and author last modified each line of a file.',
+        usage: 'git blame <file>',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Advanced/Undo) ---
+    {
+        command: 'jules git reset',
+        description: 'Reset current HEAD to the specified state.',
+        usage: 'git reset <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git reset --hard',
+        description: 'Reset current HEAD, index and working tree to specified state (destructive).',
+        usage: 'git reset --hard <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git revert',
+        description: 'Create a new commit that undoes the changes of a previous commit.',
+        usage: 'git revert <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git rebase',
+        description: 'Reapply commits on top of another base tip.',
+        usage: 'git rebase <upstream>',
+        category: 'git'
+    },
+    {
+        command: 'jules git rebase --continue',
+        description: 'Continue the rebase process after resolving conflicts.',
+        usage: 'git rebase --continue',
+        category: 'git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'git'
+    },
+
+    // --- MISC ---
+    {
+        command: 'jules version',
+        description: 'Display the installed version of the Jules CLI.',
+        category: 'misc',
+        actionId: 'version'
+    },
+    {
+        command: 'jules help',
+        description: 'Show help information for the CLI.',
+        category: 'misc',
+        actionId: 'help'
+    },
+    {
+        command: 'jules update',
+        description: 'Update the Jules CLI to the latest version.',
+        category: 'misc'
+    }
+];
 import * as vscode from 'vscode';
 import { CliBackend } from './backend/cliBackend';
 import { ApiBackend } from './backend/apiBackend';
@@ -18,7 +300,7 @@ export function activate(context: vscode.ExtensionContext) {
     };
 
     register('jules.openChat', () => vscode.commands.executeCommand('jules.chatView.focus'));
-    
+
     register('jules.checkStatus', async () => {
         await vscode.commands.executeCommand('jules.chatView.focus');
         provider.handleExternalCommand('status');
@@ -50,7 +332,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'jules.chatView';
     private _view?: vscode.WebviewView;
     private _backend: JulesBackend;
-    
+
     private _sessions: ChatSession[] = [];
     private _activeSessionId: string | null = null;
     private _authStatus: JulesAuthStatus = 'unknown';
@@ -108,7 +390,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         this._postAuthStatus();
         void this._refreshAuthStatus();
 
-        webviewView.webview.onDidReceiveMessage(async (data: any) => {
+        webviewView.webview.onDidReceiveMessage(async (data) => {
             switch (data.type) {
                 case 'newSession':
                     this._createNewSession();
@@ -230,14 +512,14 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
             type: 'stateUpdate',
             mode,
             activeSessionId: this._activeSessionId,
-            sessions: this._sessions.map(s => ({ 
-                id: s.id, 
-                title: s.title, 
+            sessions: this._sessions.map(s => ({
+                id: s.id,
+                title: s.title,
                 timestamp: s.timestamp,
                 preview: s.messages.length > 0 ? s.messages[s.messages.length - 1].text.substring(0, 50) : 'Empty session'
             })),
-            activeMessages: this._activeSessionId 
-                ? this._sessions.find(s => s.id === this._activeSessionId)?.messages 
+            activeMessages: this._activeSessionId
+                ? this._sessions.find(s => s.id === this._activeSessionId)?.messages
                 : []
         };
 
@@ -271,7 +553,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         if (!this._activeSessionId) {
             this._createNewSession();
         }
-        
+
         setTimeout(() => {
             if (cmd === 'status') this._handleUserMessage('status');
             else if (cmd.startsWith('skill:')) this._handleSkillAction(cmd.split(':')[1]);
@@ -385,7 +667,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     --border: var(--vscode-widget-border);
                 }
                 body { font-family: var(--vscode-font-family); padding: 0; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; }
-                
+
                 /* VIEWS */
                 .view { display: none; flex-direction: column; height: 100%; }
                 .view.active { display: flex; }
@@ -430,7 +712,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
                 .session-header h2 { margin: 0; font-size: 14px; text-transform: uppercase; color: var(--vscode-descriptionForeground); }
                 .btn-new { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-                
+
                 .session-item { padding: 10px; border: 1px solid var(--border); margin-bottom: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
                 .session-item:hover { background: var(--vscode-list-hoverBackground); }
                 .session-title { font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px; }
@@ -464,7 +746,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 .auth-chip.missing .status-dot { background: var(--vscode-terminal-ansiRed, #d73a49); opacity: 1; }
                 .auth-chip.unknown .status-dot { background: var(--vscode-terminal-ansiYellow, #f7b731); opacity: 1; }
                 #input-box { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid var(--vscode-input-border); color: var(--text); outline: none; border-radius: 2px; }
-                
+
                 .loader { display: none; margin: 0 auto 10px; font-size: 11px; color: var(--vscode-descriptionForeground); }
                 .loader.active { display: block; }
             </style>
@@ -473,9 +755,9 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
             <!-- TAB BAR (Only shown when not in chat) -->
             <div id="tab-bar" class="tab-bar">
                 <div class="tab active" onclick="switchTab('sessions')">TASKS</div>
-                <div id="tab-commands" class="tab" onclick="switchTab('commands')">CLI COMMANDS</div>
+                <div class="tab" onclick="switchTab('commands')">CLI COMMANDS</div>
             </div>
-            
+
             <!-- SESSION LIST VIEW -->
             <div id="session-list-view" class="view active">
 
@@ -529,7 +811,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     <button class="btn-back" onclick="backToList()">‹</button>
                     <span id="active-session-title">New Task</span>
                 </div>
-                
+
                 <div class="skills-grid">
                     <div class="skill-card" onclick="sendSkill('codegen')"><span class="skill-icon">✨</span>Forge</div>
                     <div class="skill-card" onclick="sendSkill('performance')"><span class="skill-icon">⚡</span>Bolt</div>
@@ -719,16 +1001,10 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     if (type === 'stateUpdate') {
                         currentSessionId = activeSessionId;
                         renderSessionList(sessions);
-                        
-                        // Toggle CLI Toolbox and Commands Tab
-                        const cmdTab = document.getElementById('tab-commands');
-                        if (mode === 'api') {
-                            cliToolbox.classList.remove('visible');
-                            if (cmdTab) cmdTab.style.display = 'none';
-                        } else {
-                            cliToolbox.classList.add('visible');
-                            if (cmdTab) cmdTab.style.display = '';
-                        }
+
+                        // Toggle CLI Toolbox
+                        if (mode === 'api') cliToolbox.classList.remove('visible');
+                        else cliToolbox.classList.add('visible');
 
                         if (activeSessionId) {
                             showView('chat');

@@ -5,6 +5,9 @@ import { JulesBackend, JulesAuthStatus, ChatSession } from './types';
 // API Configuration
 const API_BASE = 'https://jules.googleapis.com/v1alpha';
 
+// Polyfill for fetch if needed (Node 18+ has it, but Types might miss it)
+const fetch = (global as any).fetch;
+
 export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
     private _activePollers = new Map<string, NodeJS.Timeout>();
@@ -24,22 +27,25 @@ export class ApiBackend implements JulesBackend {
     async login(cwd: string): Promise<void> {
         const key = await vscode.window.showInputBox({
             title: 'Enter Jules API Key',
-            prompt: 'Please enter your Jules API Key (from jules.google/settings) to enable the flexible chat interface.',
+            prompt: 'Enter your API Key from jules.google/settings to enable the chat interface.',
             password: true,
             ignoreFocusOut: true
         });
 
-        if (key) {
-            await this._context.secrets.store('jules.apiKey', key);
-            this._apiKey = key;
+        if (key && key.trim().length > 0) {
+            await this._context.secrets.store('jules.apiKey', key.trim());
+            this._apiKey = key.trim();
             this._onStatusChange('signed-in');
             vscode.window.showInformationMessage('Jules API Key saved successfully. Flexible chat is now enabled.');
+        } else {
+             // If user cancels or enters empty, do nothing or warn
         }
     }
 
     async logout(cwd: string): Promise<void> {
         await this._context.secrets.delete('jules.apiKey');
         this._apiKey = undefined;
+        this._sourceNameCache.clear();
         this._onStatusChange('signed-out');
         vscode.window.showInformationMessage('Jules API Key removed.');
     }
@@ -76,7 +82,7 @@ export class ApiBackend implements JulesBackend {
                     return;
                 }
 
-                // 2. Resolve Source ID
+                // 2. Resolve Source ID (Cached)
                 const sourceName = await this._resolveSource(repoSlug);
                 if (!sourceName) {
                     this._onOutput(`⚠️ Source not found for repo: ${repoSlug}. Ensure you have installed the Jules GitHub app.`, 'system', session);
@@ -102,6 +108,33 @@ export class ApiBackend implements JulesBackend {
         }
     }
 
+    /**
+     * Cleans up resources for a specific session or all sessions if no ID provided.
+     * Use this when a session is closed or the extension is deactivated.
+     */
+    public cleanup(sessionRemoteId?: string) {
+        if (sessionRemoteId) {
+            // Stop poller
+            if (this._pollerStates.has(sessionRemoteId)) {
+                this._pollerStates.get(sessionRemoteId)!.active = false;
+                this._pollerStates.delete(sessionRemoteId);
+            }
+            if (this._activePollers.has(sessionRemoteId)) {
+                clearTimeout(this._activePollers.get(sessionRemoteId));
+                this._activePollers.delete(sessionRemoteId);
+            }
+            // Clear cache
+            this._processedActivitySets.delete(sessionRemoteId);
+        } else {
+            // Cleanup all
+            this._pollerStates.forEach(state => state.active = false);
+            this._activePollers.forEach(timer => clearTimeout(timer));
+            this._pollerStates.clear();
+            this._activePollers.clear();
+            this._processedActivitySets.clear();
+        }
+    }
+
     // --- API Methods ---
 
     private async _listSessions(session: ChatSession) {
@@ -121,6 +154,10 @@ export class ApiBackend implements JulesBackend {
     }
 
     private async _resolveSource(repoSlug: string): Promise<string | null> {
+        if (this._sourceNameCache.has(repoSlug)) {
+            return this._sourceNameCache.get(repoSlug)!;
+        }
+
         // List sources and find the one matching the repo
         // TODO: Handle pagination if user has many sources
         try {
@@ -131,10 +168,12 @@ export class ApiBackend implements JulesBackend {
             if (data.error) throw new Error(data.error.message);
 
             const source = data.sources?.find((s: any) => {
-                return s.githubRepo && `${s.githubRepo.owner}/${s.githubRepo.repo}`.toLowerCase() === repoSlug.toLowerCase();
+                return s.githubRepo && `${s.githubRepo.owner}/${s.githubRepo.repo}`.toLowerCase() === normalizedSlug;
             });
 
-            return source ? source.name : null;
+            const result = source ? source.name : null;
+            this._sourceNameCache.set(repoSlug, result);
+            return result;
         } catch (e) {
             console.error('Error resolving source', e);
             return null;
@@ -195,7 +234,10 @@ export class ApiBackend implements JulesBackend {
     }
 
     private async _pollActivities(sessionName: string, chatSession: ChatSession) {
-        // Cancel existing poller
+        // Stop any existing poller for this session
+        if (this._pollerStates.has(sessionName)) {
+            this._pollerStates.get(sessionName)!.active = false;
+        }
         if (this._activePollers.has(sessionName)) {
             clearTimeout(this._activePollers.get(sessionName)!);
             this._pollerStates.set(sessionName, false); // Mark old as inactive
@@ -221,6 +263,8 @@ export class ApiBackend implements JulesBackend {
 
             polls++;
             if (polls > maxPolls) {
+                // Auto-cleanup on timeout
+                this._pollerStates.delete(sessionName);
                 this._activePollers.delete(sessionName);
                 this._pollerStates.delete(sessionName);
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
@@ -243,12 +287,13 @@ export class ApiBackend implements JulesBackend {
                 // We'll iterate and check IDs.
 
                 for (const act of activities) {
-                    // Check if already processed
-                    if (chatSession.processedActivityIds!.includes(act.name)) {
+                    // Check if already processed using Set (O(1))
+                    if (processedSet.has(act.name)) {
                         continue;
                     }
 
                     // Mark as seen immediately
+                    processedSet.add(act.name);
                     chatSession.processedActivityIds!.push(act.name);
                     hasNewActivity = true;
 
@@ -297,17 +342,28 @@ export class ApiBackend implements JulesBackend {
 
     // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
     private _getGitHubRepoSlug(cwd: string): Promise<string | null> {
+        if (this._repoSlugCache.has(cwd)) {
+            return Promise.resolve(this._repoSlugCache.get(cwd)!);
+        }
+
         return new Promise(resolve => {
             cp.exec('git remote get-url origin', { cwd }, (err, stdout) => {
                 const url = stdout.trim();
+                let result: string | null = null;
+
                 if (url) {
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
-                    if (match) resolve(match[1]);
-                    else resolve(null);
-                } else {
-                    resolve(null);
+                    if (match) {
+                        result = match[1];
+                    }
                 }
+
+                this._repoSlugCache.set(cwd, result);
+                resolve(result);
             });
         });
+
+        this._sourceNameCache.set(cwd, slug);
+        return slug;
     }
 }
