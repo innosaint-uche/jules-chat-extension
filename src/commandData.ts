@@ -117,17 +117,37 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'config'
     },
 
-    // --- GIT OPERATIONS (Essential) ---
+    // --- GIT OPERATIONS (Core) ---
+    {
+        command: 'jules git init',
+        description: 'Initialize a new git repository.',
+        usage: 'git init',
+        category: 'git'
+    },
+    {
+        command: 'jules git clone',
+        description: 'Clone a repository into a new directory.',
+        usage: 'git clone <repository>',
+        category: 'git'
+    },
+    {
+        command: 'jules git config',
+        description: 'Get and set repository or global options.',
+        usage: 'git config --list',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote',
+        description: 'Manage set of tracked repositories.',
+        usage: 'git remote -v',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Basic Snapshotting) ---
     {
         command: 'jules git status',
         description: 'Show the working tree status.',
         usage: 'git status',
-        category: 'git'
-    },
-    {
-        command: 'jules git diff',
-        description: 'Show changes between commits, commit and working tree, etc.',
-        usage: 'git diff',
         category: 'git'
     },
     {
@@ -155,19 +175,13 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git push',
-        description: 'Update remote refs along with associated objects.',
-        usage: 'git push <remote> <branch>',
-        category: 'git'
-    },
-    {
-        command: 'jules git pull',
-        description: 'Fetch from and integrate with another repository or a local branch.',
-        usage: 'git pull <remote> <branch>',
+        command: 'jules git diff',
+        description: 'Show changes between commits, commit and working tree, etc.',
+        usage: 'git diff',
         category: 'git'
     },
 
-    // --- GIT OPERATIONS (Advanced) ---
+    // --- GIT OPERATIONS (Branching & Merging) ---
     {
         command: 'jules git branch',
         description: 'List local branches.',
@@ -211,6 +225,14 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
+        command: 'jules git grep',
+        description: 'Print lines matching a pattern.',
+        usage: 'git grep <pattern>',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Advanced) ---
+    {
         command: 'jules git stash',
         description: 'Stash the changes in a dirty working directory away.',
         usage: 'git stash',
@@ -240,6 +262,8 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git remote -v',
         category: 'git'
     },
+
+    // --- GIT OPERATIONS (Sharing & Updating) ---
     {
         command: 'jules git fetch',
         description: 'Download objects and refs from another repository.',
@@ -268,6 +292,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         command: 'jules git cherry-pick',
         description: 'Apply the changes introduced by some existing commits.',
         usage: 'git cherry-pick <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git config',
+        description: 'Get and set repository or global options.',
+        usage: 'git config --global user.name "John Doe"',
         category: 'git'
     },
 
