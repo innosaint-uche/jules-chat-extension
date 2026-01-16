@@ -87,7 +87,7 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'config'
     },
 
-    // --- GIT OPERATIONS (Essential) ---
+    // --- GIT OPERATIONS (Core) ---
     {
         command: 'jules git status',
         description: 'Show the working tree status.',
@@ -125,7 +125,7 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
 
-    // --- GIT OPERATIONS (Advanced) ---
+    // --- GIT OPERATIONS (Branching & Merging) ---
     {
         command: 'jules git branch',
         description: 'List, create, or delete branches.',
@@ -145,17 +145,95 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
+        command: 'jules git switch',
+        description: 'Switch branches.',
+        usage: 'git switch <branch>',
+        category: 'git'
+    },
+    {
+        command: 'jules git restore',
+        description: 'Restore working tree files.',
+        usage: 'git restore <file>',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (History & Inspection) ---
+    {
         command: 'jules git log',
         description: 'Show commit logs.',
         usage: 'git log --oneline',
         category: 'git'
     },
     {
+        command: 'jules git show',
+        description: 'Show various types of objects.',
+        usage: 'git show <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git blame',
+        description: 'Show what revision and author last modified each line of a file.',
+        usage: 'git blame <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git grep',
+        description: 'Print lines matching a pattern.',
+        usage: 'git grep <pattern>',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Advanced) ---
+    {
         command: 'jules git stash',
         description: 'Stash the changes in a dirty working directory away.',
         usage: 'git stash',
         category: 'git'
     },
+    {
+        command: 'jules git stash pop',
+        description: 'Remove a single stashed state from the stash list and apply it.',
+        usage: 'git stash pop',
+        category: 'git'
+    },
+    {
+        command: 'jules git rebase',
+        description: 'Reapply commits on top of another base tip.',
+        usage: 'git rebase <upstream>',
+        category: 'git'
+    },
+    {
+        command: 'jules git reset',
+        description: 'Reset current HEAD to the specified state.',
+        usage: 'git reset --hard <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git revert',
+        description: 'Revert some existing commits.',
+        usage: 'git revert <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'git'
+    },
+    {
+        command: 'jules git tag',
+        description: 'Create, list, delete or verify a tag object signed with GPG.',
+        usage: 'git tag -a v1.4 -m "my version 1.4"',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Remote) ---
     {
         command: 'jules git remote -v',
         description: 'List remote repositories.',
@@ -166,6 +244,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         command: 'jules git fetch',
         description: 'Download objects and refs from another repository.',
         usage: 'git fetch',
+        category: 'git'
+    },
+    {
+        command: 'jules git config',
+        description: 'Get and set repository or global options.',
+        usage: 'git config --global user.name "John Doe"',
         category: 'git'
     },
 
