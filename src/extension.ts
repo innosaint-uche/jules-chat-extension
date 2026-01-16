@@ -108,7 +108,7 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         this._postAuthStatus();
         void this._refreshAuthStatus();
 
-        webviewView.webview.onDidReceiveMessage(async (data) => {
+        webviewView.webview.onDidReceiveMessage(async (data: any) => {
             switch (data.type) {
                 case 'newSession':
                     this._createNewSession();

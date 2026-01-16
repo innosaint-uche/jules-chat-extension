@@ -10,20 +10,8 @@ const fetch = (global as any).fetch;
 
 export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
-    private _activePollers = new Map<string, any>(); // Use any to avoid NodeJS.Timeout vs number issues
-    private _pollerStates = new Map<string, { active: boolean }>();
-    private _repoSlugCache = new Map<string, string>(); // Cache for repo slug per CWD
-
-    // Performance optimization: Local caches
-    private _repoSlugCache = new Map<string, string | null>();
-    private _sourceNameCache = new Map<string, string | null>();
-
-    // Performance optimization: Local Set for fast deduplication of activities per session
-    // This avoids O(N*M) checks where N is new activities and M is total history.
-    private _processedActivitySets = new Map<string, Set<string>>();
-
-    // Optimization: Cache resolved source names for repo slugs to avoid frequent lookups
-    private _sourceNameCache = new Map<string, string>();
+    private _activePollers = new Map<string, NodeJS.Timeout>();
+    private _pollerStates = new Map<string, boolean>();
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -115,7 +103,8 @@ export class ApiBackend implements JulesBackend {
             }
 
         } catch (error: any) {
-            this._onOutput(`❌ API Error: ${error.message}`, 'system', session);
+            const msg = error instanceof Error ? error.message : String(error);
+            this._onOutput(`❌ API Error: ${msg}`, 'system', session);
         }
     }
 
@@ -159,7 +148,8 @@ export class ApiBackend implements JulesBackend {
             const list = (data.sessions || []).map((s: any) => `- **${s.title}** (ID: ${s.id})`).join('\n');
             this._onOutput(`Recent Sessions:\n${list || 'No sessions found.'}`, 'jules', session);
         } catch (e: any) {
-            this._onOutput(`Error listing sessions: ${e.message}`, 'system', session);
+            const msg = e instanceof Error ? e.message : String(e);
+            this._onOutput(`Error listing sessions: ${msg}`, 'system', session);
         }
     }
 
@@ -249,33 +239,34 @@ export class ApiBackend implements JulesBackend {
             this._pollerStates.get(sessionName)!.active = false;
         }
         if (this._activePollers.has(sessionName)) {
-            clearTimeout(this._activePollers.get(sessionName));
+            clearTimeout(this._activePollers.get(sessionName)!);
+            this._pollerStates.set(sessionName, false); // Mark old as inactive
         }
 
-        // Initialize state for new poller
-        const state = { active: true };
-        this._pollerStates.set(sessionName, state);
-
-        // Initialize processed set for this session if not exists
-        if (!this._processedActivitySets.has(sessionName)) {
-            this._processedActivitySets.set(sessionName, new Set(chatSession.processedActivityIds || []));
-        }
-        const processedSet = this._processedActivitySets.get(sessionName)!;
-
-        let polls = 0;
+        // Initialize state
         const maxPolls = 600; // ~10 minutes
-        const maxDelay = 30000;
+        const maxDelay = 10000;
+        let polls = 0;
         let currentDelay = 1000;
 
+        // Ensure processedActivityIds is initialized
+        if (!chatSession.processedActivityIds) {
+            chatSession.processedActivityIds = [];
+        }
+
+        // Set active state
+        this._pollerStates.set(sessionName, true);
+
         const poll = async () => {
-            if (!state.active) return; // Stop if cancelled
+            // Check if this poller was cancelled
+            if (!this._pollerStates.get(sessionName)) return;
 
             polls++;
             if (polls > maxPolls) {
                 // Auto-cleanup on timeout
                 this._pollerStates.delete(sessionName);
                 this._activePollers.delete(sessionName);
-                this._processedActivitySets.delete(sessionName); // Cleanup cache on timeout
+                this._pollerStates.delete(sessionName);
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }
@@ -286,10 +277,14 @@ export class ApiBackend implements JulesBackend {
                 });
                 const data = await res.json() as any;
 
-                if (!state.active) return; // Check again after await
+                // Check again after await
+                if (!this._pollerStates.get(sessionName)) return;
 
                 let hasNewActivity = false;
                 const activities = data.activities || [];
+
+                // Sort by create time if needed, but API usually returns chronological or reverse
+                // We'll iterate and check IDs.
 
                 for (const act of activities) {
                     // Check if already processed using Set (O(1))
@@ -322,6 +317,7 @@ export class ApiBackend implements JulesBackend {
 
                 if (hasNewActivity) {
                     currentDelay = 1000;
+                    polls = 0; // Reset timeout counter on activity
                 } else {
                     currentDelay = Math.min(currentDelay * 1.5, maxDelay);
                 }
@@ -332,8 +328,8 @@ export class ApiBackend implements JulesBackend {
                 currentDelay = Math.min(currentDelay * 2, maxDelay);
             }
 
-            // Schedule next poll
-            if (state.active) {
+            // Schedule next poll if still active
+            if (this._pollerStates.get(sessionName)) {
                 const timer = setTimeout(poll, currentDelay);
                 this._activePollers.set(sessionName, timer);
             }
