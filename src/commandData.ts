@@ -89,15 +89,35 @@ export const CLI_COMMANDS: CommandDefinition[] = [
 
     // --- GIT OPERATIONS (Core) ---
     {
-        command: 'jules git status',
-        description: 'Show the working tree status.',
-        usage: 'git status',
+        command: 'jules git init',
+        description: 'Initialize a new git repository.',
+        usage: 'git init',
         category: 'git'
     },
     {
-        command: 'jules git diff',
-        description: 'Show changes between commits, commit and working tree, etc.',
-        usage: 'git diff',
+        command: 'jules git clone',
+        description: 'Clone a repository into a new directory.',
+        usage: 'git clone <repository>',
+        category: 'git'
+    },
+    {
+        command: 'jules git config',
+        description: 'Get and set repository or global options.',
+        usage: 'git config --list',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote',
+        description: 'Manage set of tracked repositories.',
+        usage: 'git remote -v',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Basic Snapshotting) ---
+    {
+        command: 'jules git status',
+        description: 'Show the working tree status.',
+        usage: 'git status',
         category: 'git'
     },
     {
@@ -113,15 +133,9 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git push',
-        description: 'Update remote refs along with associated objects.',
-        usage: 'git push <remote> <branch>',
-        category: 'git'
-    },
-    {
-        command: 'jules git pull',
-        description: 'Fetch from and integrate with another repository or a local branch.',
-        usage: 'git pull <remote> <branch>',
+        command: 'jules git diff',
+        description: 'Show changes between commits, commit and working tree, etc.',
+        usage: 'git diff',
         category: 'git'
     },
 
@@ -139,29 +153,15 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git merge',
-        description: 'Join two or more development histories together.',
-        usage: 'git merge <branch>',
-        category: 'git'
-    },
-    {
         command: 'jules git switch',
-        description: 'Switch branches.',
+        description: 'Switch branches (newer alternative to checkout).',
         usage: 'git switch <branch>',
         category: 'git'
     },
     {
-        command: 'jules git restore',
-        description: 'Restore working tree files.',
-        usage: 'git restore <file>',
-        category: 'git'
-    },
-
-    // --- GIT OPERATIONS (History & Inspection) ---
-    {
-        command: 'jules git log',
-        description: 'Show commit logs.',
-        usage: 'git log --oneline',
+        command: 'jules git merge',
+        description: 'Join two or more development histories together.',
+        usage: 'git merge <branch>',
         category: 'git'
     },
     {
@@ -192,54 +192,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
     },
     {
         command: 'jules git stash pop',
-        description: 'Remove a single stashed state from the stash list and apply it.',
+        description: 'Apply the stashed changes and remove from stash list.',
         usage: 'git stash pop',
         category: 'git'
     },
-    {
-        command: 'jules git rebase',
-        description: 'Reapply commits on top of another base tip.',
-        usage: 'git rebase <upstream>',
-        category: 'git'
-    },
-    {
-        command: 'jules git reset',
-        description: 'Reset current HEAD to the specified state.',
-        usage: 'git reset --hard <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git revert',
-        description: 'Revert some existing commits.',
-        usage: 'git revert <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git cherry-pick',
-        description: 'Apply the changes introduced by some existing commits.',
-        usage: 'git cherry-pick <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git clean',
-        description: 'Remove untracked files from the working tree.',
-        usage: 'git clean -fd',
-        category: 'git'
-    },
-    {
-        command: 'jules git tag',
-        description: 'Create, list, delete or verify a tag object signed with GPG.',
-        usage: 'git tag -a v1.4 -m "my version 1.4"',
-        category: 'git'
-    },
 
-    // --- GIT OPERATIONS (Remote) ---
-    {
-        command: 'jules git remote -v',
-        description: 'List remote repositories.',
-        usage: 'git remote -v',
-        category: 'git'
-    },
+    // --- GIT OPERATIONS (Sharing & Updating) ---
     {
         command: 'jules git fetch',
         description: 'Download objects and refs from another repository.',
