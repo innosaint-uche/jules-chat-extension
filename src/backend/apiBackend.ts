@@ -12,7 +12,7 @@ export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
     private _activePollers = new Map<string, any>(); // Use any to avoid NodeJS.Timeout vs number issues
     private _pollerStates = new Map<string, { active: boolean }>();
-    private _sourceNameCache = new Map<string, string | null>(); // Cache for source resolution
+    private _repoSlugCache = new Map<string, string>(); // Cache for repo slug per CWD
 
     // Performance optimization: Local Set for fast deduplication of activities per session
     // This avoids O(N*M) checks where N is new activities and M is total history.
@@ -343,21 +343,17 @@ export class ApiBackend implements JulesBackend {
     }
 
     // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
-    private async _getGitHubRepoSlug(cwd: string): Promise<string | null> {
-        // Optimization: Check cache first
-        if (this._sourceNameCache.has(cwd)) {
-            return this._sourceNameCache.get(cwd)!;
-        }
+    private _getGitHubRepoSlug(cwd: string): Promise<string | null> {
+        if (this._repoSlugCache.has(cwd)) return Promise.resolve(this._repoSlugCache.get(cwd)!);
 
-        const slug = await new Promise<string | null>(resolve => {
+        return new Promise(resolve => {
             cp.exec('git remote get-url origin', { cwd }, (err, stdout) => {
                 const url = stdout.trim();
                 if (url) {
-                    // Bolt Optimization: Fixed regex to allow dots in repo names and caching result
-                    const match = url.match(/github\.com[:/]([^/]+\/[^/\s]+?)(\.git)?$/) || url.match(/github\.com[:/]([^/]+\/[^/\s]+)/);
+                    const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
                     if (match) {
-                        const s = match[1].replace(/\.git$/, '');
-                        resolve(s);
+                        this._repoSlugCache.set(cwd, match[1]);
+                        resolve(match[1]);
                     }
                     else resolve(null);
                 } else {

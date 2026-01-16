@@ -300,6 +300,60 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git config --global user.name "John Doe"',
         category: 'git'
     },
+    {
+        command: 'jules git reset',
+        description: 'Reset current HEAD to the specified state.',
+        usage: 'git reset [--soft | --hard] <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git rebase',
+        description: 'Reapply commits on top of another base tip.',
+        usage: 'git rebase <branch>',
+        category: 'git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git tag',
+        description: 'Create, list, delete or verify a tag object signed with GPG.',
+        usage: 'git tag',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash pop',
+        description: 'Remove a single stashed state from the stash list and apply it on top of the current working tree state.',
+        usage: 'git stash pop',
+        category: 'git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'git'
+    },
+    {
+        command: 'jules git blame',
+        description: 'Show what revision and author last modified each line of a file.',
+        usage: 'git blame <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git show',
+        description: 'Show various types of objects.',
+        usage: 'git show <object>',
+        category: 'git'
+    },
+    {
+        command: 'jules git revert',
+        description: 'Revert some existing commits.',
+        usage: 'git revert <commit>',
+        category: 'git'
+    },
 
     // --- MISC ---
     {
