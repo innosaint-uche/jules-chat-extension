@@ -18,6 +18,9 @@ export class ApiBackend implements JulesBackend {
     // This avoids O(N*M) checks where N is new activities and M is total history.
     private _processedActivitySets = new Map<string, Set<string>>();
 
+    // Optimization: Cache resolved source names for repo slugs to avoid frequent lookups
+    private _sourceNameCache = new Map<string, string>();
+
     constructor(
         private readonly _context: vscode.ExtensionContext,
         private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession) => void,
@@ -32,22 +35,25 @@ export class ApiBackend implements JulesBackend {
     async login(cwd: string): Promise<void> {
         const key = await vscode.window.showInputBox({
             title: 'Enter Jules API Key',
-            prompt: 'Please enter your Jules API Key (from jules.google/settings) to enable the flexible chat interface.',
+            prompt: 'Enter your API Key from jules.google/settings to enable the chat interface.',
             password: true,
             ignoreFocusOut: true
         });
 
-        if (key) {
-            await this._context.secrets.store('jules.apiKey', key);
-            this._apiKey = key;
+        if (key && key.trim().length > 0) {
+            await this._context.secrets.store('jules.apiKey', key.trim());
+            this._apiKey = key.trim();
             this._onStatusChange('signed-in');
             vscode.window.showInformationMessage('Jules API Key saved successfully. Flexible chat is now enabled.');
+        } else {
+             // If user cancels or enters empty, do nothing or warn
         }
     }
 
     async logout(cwd: string): Promise<void> {
         await this._context.secrets.delete('jules.apiKey');
         this._apiKey = undefined;
+        this._sourceNameCache.clear();
         this._onStatusChange('signed-out');
         vscode.window.showInformationMessage('Jules API Key removed.');
     }
@@ -84,7 +90,7 @@ export class ApiBackend implements JulesBackend {
                     return;
                 }
 
-                // 2. Resolve Source ID
+                // 2. Resolve Source ID (Cached)
                 const sourceName = await this._resolveSource(repoSlug);
                 if (!sourceName) {
                     this._onOutput(`⚠️ Source not found for repo: ${repoSlug}. Ensure you have installed the Jules GitHub app.`, 'system', session);
@@ -154,8 +160,12 @@ export class ApiBackend implements JulesBackend {
     }
 
     private async _resolveSource(repoSlug: string): Promise<string | null> {
-        // List sources and find the one matching the repo
-        // TODO: Handle pagination if user has many sources
+        const normalizedSlug = repoSlug.toLowerCase();
+        // Optimization: Check cache first
+        if (this._sourceNameCache.has(normalizedSlug)) {
+            return this._sourceNameCache.get(normalizedSlug)!;
+        }
+
         try {
             const res = await fetch(`${API_BASE}/sources`, {
                 headers: { 'x-goog-api-key': this._apiKey! }
@@ -164,10 +174,14 @@ export class ApiBackend implements JulesBackend {
             if (data.error) throw new Error(data.error.message);
 
             const source = data.sources?.find((s: any) => {
-                return s.githubRepo && `${s.githubRepo.owner}/${s.githubRepo.repo}`.toLowerCase() === repoSlug.toLowerCase();
+                return s.githubRepo && `${s.githubRepo.owner}/${s.githubRepo.repo}`.toLowerCase() === normalizedSlug;
             });
 
-            return source ? source.name : null;
+            if (source) {
+                this._sourceNameCache.set(normalizedSlug, source.name);
+                return source.name;
+            }
+            return null;
         } catch (e) {
             console.error('Error resolving source', e);
             return null;
