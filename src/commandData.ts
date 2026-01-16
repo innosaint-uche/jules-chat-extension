@@ -87,17 +87,37 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'config'
     },
 
-    // --- GIT OPERATIONS (Essential) ---
+    // --- GIT OPERATIONS (Setup & Config) ---
+    {
+        command: 'jules git init',
+        description: 'Initialize a new git repository.',
+        usage: 'git init',
+        category: 'git'
+    },
+    {
+        command: 'jules git clone',
+        description: 'Clone a repository into a new directory.',
+        usage: 'git clone <repository>',
+        category: 'git'
+    },
+    {
+        command: 'jules git config',
+        description: 'Get and set repository or global options.',
+        usage: 'git config --list',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote',
+        description: 'Manage set of tracked repositories.',
+        usage: 'git remote -v',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Basic Snapshotting) ---
     {
         command: 'jules git status',
         description: 'Show the working tree status.',
         usage: 'git status',
-        category: 'git'
-    },
-    {
-        command: 'jules git diff',
-        description: 'Show changes between commits, commit and working tree, etc.',
-        usage: 'git diff',
         category: 'git'
     },
     {
@@ -113,19 +133,13 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git push',
-        description: 'Update remote refs along with associated objects.',
-        usage: 'git push <remote> <branch>',
-        category: 'git'
-    },
-    {
-        command: 'jules git pull',
-        description: 'Fetch from and integrate with another repository or a local branch.',
-        usage: 'git pull <remote> <branch>',
+        command: 'jules git diff',
+        description: 'Show changes between commits, commit and working tree, etc.',
+        usage: 'git diff',
         category: 'git'
     },
 
-    // --- GIT OPERATIONS (Advanced) ---
+    // --- GIT OPERATIONS (Branching & Merging) ---
     {
         command: 'jules git branch',
         description: 'List, create, or delete branches.',
@@ -139,15 +153,15 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git merge',
-        description: 'Join two or more development histories together.',
-        usage: 'git merge <branch>',
+        command: 'jules git switch',
+        description: 'Switch branches (newer alternative to checkout).',
+        usage: 'git switch <branch>',
         category: 'git'
     },
     {
-        command: 'jules git log',
-        description: 'Show commit logs.',
-        usage: 'git log --oneline',
+        command: 'jules git merge',
+        description: 'Join two or more development histories together.',
+        usage: 'git merge <branch>',
         category: 'git'
     },
     {
@@ -157,15 +171,93 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git remote -v',
-        description: 'List remote repositories.',
-        usage: 'git remote -v',
+        command: 'jules git stash pop',
+        description: 'Apply the stashed changes and remove from stash list.',
+        usage: 'git stash pop',
         category: 'git'
     },
+
+    // --- GIT OPERATIONS (Sharing & Updating) ---
     {
         command: 'jules git fetch',
         description: 'Download objects and refs from another repository.',
         usage: 'git fetch',
+        category: 'git'
+    },
+    {
+        command: 'jules git pull',
+        description: 'Fetch from and integrate with another repository or a local branch.',
+        usage: 'git pull <remote> <branch>',
+        category: 'git'
+    },
+    {
+        command: 'jules git push',
+        description: 'Update remote refs along with associated objects.',
+        usage: 'git push <remote> <branch>',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Inspection & Comparison) ---
+    {
+        command: 'jules git log',
+        description: 'Show commit logs.',
+        usage: 'git log --oneline --graph',
+        category: 'git'
+    },
+    {
+        command: 'jules git show',
+        description: 'Show various types of objects (commits, tags, etc.).',
+        usage: 'git show <object>',
+        category: 'git'
+    },
+    {
+        command: 'jules git blame',
+        description: 'Show what revision and author last modified each line of a file.',
+        usage: 'git blame <file>',
+        category: 'git'
+    },
+
+    // --- GIT OPERATIONS (Advanced/Undo) ---
+    {
+        command: 'jules git reset',
+        description: 'Reset current HEAD to the specified state.',
+        usage: 'git reset <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git reset --hard',
+        description: 'Reset current HEAD, index and working tree to specified state (destructive).',
+        usage: 'git reset --hard <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git revert',
+        description: 'Create a new commit that undoes the changes of a previous commit.',
+        usage: 'git revert <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git rebase',
+        description: 'Reapply commits on top of another base tip.',
+        usage: 'git rebase <upstream>',
+        category: 'git'
+    },
+    {
+        command: 'jules git rebase --continue',
+        description: 'Continue the rebase process after resolving conflicts.',
+        usage: 'git rebase --continue',
+        category: 'git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
         category: 'git'
     },
 
