@@ -14,6 +14,10 @@ export class ApiBackend implements JulesBackend {
     private _pollerStates = new Map<string, { active: boolean }>();
     private _repoSlugCache = new Map<string, string>(); // Cache for repo slug per CWD
 
+    // Performance optimization: Local caches
+    private _repoSlugCache = new Map<string, string | null>();
+    private _sourceNameCache = new Map<string, string | null>();
+
     // Performance optimization: Local Set for fast deduplication of activities per session
     // This avoids O(N*M) checks where N is new activities and M is total history.
     private _processedActivitySets = new Map<string, Set<string>>();
@@ -160,12 +164,12 @@ export class ApiBackend implements JulesBackend {
     }
 
     private async _resolveSource(repoSlug: string): Promise<string | null> {
-        const normalizedSlug = repoSlug.toLowerCase();
-        // Optimization: Check cache first
-        if (this._sourceNameCache.has(normalizedSlug)) {
-            return this._sourceNameCache.get(normalizedSlug)!;
+        if (this._sourceNameCache.has(repoSlug)) {
+            return this._sourceNameCache.get(repoSlug)!;
         }
 
+        // List sources and find the one matching the repo
+        // TODO: Handle pagination if user has many sources
         try {
             const res = await fetch(`${API_BASE}/sources`, {
                 headers: { 'x-goog-api-key': this._apiKey! }
@@ -177,11 +181,9 @@ export class ApiBackend implements JulesBackend {
                 return s.githubRepo && `${s.githubRepo.owner}/${s.githubRepo.repo}`.toLowerCase() === normalizedSlug;
             });
 
-            if (source) {
-                this._sourceNameCache.set(normalizedSlug, source.name);
-                return source.name;
-            }
-            return null;
+            const result = source ? source.name : null;
+            this._sourceNameCache.set(repoSlug, result);
+            return result;
         } catch (e) {
             console.error('Error resolving source', e);
             return null;
@@ -344,21 +346,24 @@ export class ApiBackend implements JulesBackend {
 
     // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
     private _getGitHubRepoSlug(cwd: string): Promise<string | null> {
-        if (this._repoSlugCache.has(cwd)) return Promise.resolve(this._repoSlugCache.get(cwd)!);
+        if (this._repoSlugCache.has(cwd)) {
+            return Promise.resolve(this._repoSlugCache.get(cwd)!);
+        }
 
         return new Promise(resolve => {
             cp.exec('git remote get-url origin', { cwd }, (err, stdout) => {
                 const url = stdout.trim();
+                let result: string | null = null;
+
                 if (url) {
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
                     if (match) {
-                        this._repoSlugCache.set(cwd, match[1]);
-                        resolve(match[1]);
+                        result = match[1];
                     }
-                    else resolve(null);
-                } else {
-                    resolve(null);
                 }
+
+                this._repoSlugCache.set(cwd, result);
+                resolve(result);
             });
         });
 
