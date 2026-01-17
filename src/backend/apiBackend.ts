@@ -12,6 +12,9 @@ export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
     private _activePollers = new Map<string, NodeJS.Timeout>();
     private _pollerStates = new Map<string, boolean>();
+    private _processedActivitySets = new Map<string, Set<string>>();
+    private _sourceNameCache = new Map<string, string | null>();
+    private _repoSlugCache = new Map<string, string | null>();
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -116,7 +119,7 @@ export class ApiBackend implements JulesBackend {
         if (sessionRemoteId) {
             // Stop poller
             if (this._pollerStates.has(sessionRemoteId)) {
-                this._pollerStates.get(sessionRemoteId)!.active = false;
+                this._pollerStates.set(sessionRemoteId, false);
                 this._pollerStates.delete(sessionRemoteId);
             }
             if (this._activePollers.has(sessionRemoteId)) {
@@ -127,7 +130,10 @@ export class ApiBackend implements JulesBackend {
             this._processedActivitySets.delete(sessionRemoteId);
         } else {
             // Cleanup all
-            this._pollerStates.forEach(state => state.active = false);
+            // We can't mutate the value in forEach for a boolean primitive, but we can clear the map which stops pollers
+            // checks in poll() will fail if key is missing or we can iterate keys.
+            // But since we are clearing everything, just clearing maps is enough.
+            // The timers need to be cleared though.
             this._activePollers.forEach(timer => clearTimeout(timer));
             this._pollerStates.clear();
             this._activePollers.clear();
@@ -161,6 +167,7 @@ export class ApiBackend implements JulesBackend {
         // List sources and find the one matching the repo
         // TODO: Handle pagination if user has many sources
         try {
+            const normalizedSlug = repoSlug.toLowerCase();
             const res = await fetch(`${API_BASE}/sources`, {
                 headers: { 'x-goog-api-key': this._apiKey! }
             });
@@ -236,7 +243,7 @@ export class ApiBackend implements JulesBackend {
     private async _pollActivities(sessionName: string, chatSession: ChatSession) {
         // Stop any existing poller for this session
         if (this._pollerStates.has(sessionName)) {
-            this._pollerStates.get(sessionName)!.active = false;
+            this._pollerStates.set(sessionName, false);
         }
         if (this._activePollers.has(sessionName)) {
             clearTimeout(this._activePollers.get(sessionName)!);
@@ -252,6 +259,17 @@ export class ApiBackend implements JulesBackend {
         // Ensure processedActivityIds is initialized
         if (!chatSession.processedActivityIds) {
             chatSession.processedActivityIds = [];
+        }
+
+        // Initialize or get the Set cache for O(1) lookup
+        let processedSet = this._processedActivitySets.get(sessionName);
+        if (!processedSet) {
+            processedSet = new Set<string>();
+            // Pre-populate if session has history
+            if (chatSession.processedActivityIds) {
+                chatSession.processedActivityIds.forEach(id => processedSet!.add(id));
+            }
+            this._processedActivitySets.set(sessionName, processedSet);
         }
 
         // Set active state
@@ -362,8 +380,5 @@ export class ApiBackend implements JulesBackend {
                 resolve(result);
             });
         });
-
-        this._sourceNameCache.set(cwd, slug);
-        return slug;
     }
 }
