@@ -12,6 +12,9 @@ export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
     private _activePollers = new Map<string, NodeJS.Timeout>();
     private _pollerStates = new Map<string, boolean>();
+    private _sourceNameCache = new Map<string, string | null>();
+    private _repoSlugCache = new Map<string, string | null>();
+    private _processedActivitySets = new Map<string, Set<string>>();
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -46,6 +49,9 @@ export class ApiBackend implements JulesBackend {
         await this._context.secrets.delete('jules.apiKey');
         this._apiKey = undefined;
         this._sourceNameCache.clear();
+        this._repoSlugCache.clear();
+        this._processedActivitySets.clear();
+        this.cleanup();
         this._onStatusChange('signed-out');
         vscode.window.showInformationMessage('Jules API Key removed.');
     }
@@ -116,7 +122,7 @@ export class ApiBackend implements JulesBackend {
         if (sessionRemoteId) {
             // Stop poller
             if (this._pollerStates.has(sessionRemoteId)) {
-                this._pollerStates.get(sessionRemoteId)!.active = false;
+                this._pollerStates.set(sessionRemoteId, false);
                 this._pollerStates.delete(sessionRemoteId);
             }
             if (this._activePollers.has(sessionRemoteId)) {
@@ -127,7 +133,6 @@ export class ApiBackend implements JulesBackend {
             this._processedActivitySets.delete(sessionRemoteId);
         } else {
             // Cleanup all
-            this._pollerStates.forEach(state => state.active = false);
             this._activePollers.forEach(timer => clearTimeout(timer));
             this._pollerStates.clear();
             this._activePollers.clear();
@@ -157,6 +162,8 @@ export class ApiBackend implements JulesBackend {
         if (this._sourceNameCache.has(repoSlug)) {
             return this._sourceNameCache.get(repoSlug)!;
         }
+
+        const normalizedSlug = repoSlug.toLowerCase();
 
         // List sources and find the one matching the repo
         // TODO: Handle pagination if user has many sources
@@ -236,7 +243,7 @@ export class ApiBackend implements JulesBackend {
     private async _pollActivities(sessionName: string, chatSession: ChatSession) {
         // Stop any existing poller for this session
         if (this._pollerStates.has(sessionName)) {
-            this._pollerStates.get(sessionName)!.active = false;
+            this._pollerStates.set(sessionName, false);
         }
         if (this._activePollers.has(sessionName)) {
             clearTimeout(this._activePollers.get(sessionName)!);
@@ -254,6 +261,13 @@ export class ApiBackend implements JulesBackend {
             chatSession.processedActivityIds = [];
         }
 
+        // Initialize dedupe set if not exists
+        let processedSet = this._processedActivitySets.get(sessionName);
+        if (!processedSet) {
+            processedSet = new Set<string>();
+            this._processedActivitySets.set(sessionName, processedSet);
+        }
+
         // Set active state
         this._pollerStates.set(sessionName, true);
 
@@ -266,7 +280,7 @@ export class ApiBackend implements JulesBackend {
                 // Auto-cleanup on timeout
                 this._pollerStates.delete(sessionName);
                 this._activePollers.delete(sessionName);
-                this._pollerStates.delete(sessionName);
+                this._processedActivitySets.delete(sessionName);
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }
@@ -288,12 +302,12 @@ export class ApiBackend implements JulesBackend {
 
                 for (const act of activities) {
                     // Check if already processed using Set (O(1))
-                    if (processedSet.has(act.name)) {
+                    if (processedSet!.has(act.name)) {
                         continue;
                     }
 
                     // Mark as seen immediately
-                    processedSet.add(act.name);
+                    processedSet!.add(act.name);
                     chatSession.processedActivityIds!.push(act.name);
                     hasNewActivity = true;
 
@@ -340,7 +354,7 @@ export class ApiBackend implements JulesBackend {
         this._activePollers.set(sessionName, timer);
     }
 
-    // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
+    // --- Helpers ---
     private _getGitHubRepoSlug(cwd: string): Promise<string | null> {
         if (this._repoSlugCache.has(cwd)) {
             return Promise.resolve(this._repoSlugCache.get(cwd)!);
@@ -352,9 +366,10 @@ export class ApiBackend implements JulesBackend {
                 let result: string | null = null;
 
                 if (url) {
+                    // Match git@github.com:user/repo.git or https://github.com/user/repo
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
                     if (match) {
-                        result = match[1];
+                        result = match[1].replace(/\.git$/, '');
                     }
                 }
 
@@ -362,8 +377,5 @@ export class ApiBackend implements JulesBackend {
                 resolve(result);
             });
         });
-
-        this._sourceNameCache.set(cwd, slug);
-        return slug;
     }
 }
