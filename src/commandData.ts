@@ -2,7 +2,7 @@ export interface CommandDefinition {
     command: string;
     description: string;
     usage?: string;
-    category: 'auth' | 'session' | 'git' | 'misc' | 'config';
+    category: 'auth' | 'session' | 'git' | 'misc' | 'config' | 'advanced-git';
     actionId?: string; // If we can trigger it directly
 }
 
@@ -25,6 +25,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         description: 'Verify current authentication status.',
         category: 'auth',
         actionId: 'status'
+    },
+    {
+        command: 'Configure API Key',
+        description: 'Manually enter your Jules API Key for direct API mode.',
+        category: 'auth',
+        actionId: 'jules.setApiKey' // This is a VSCode command ID
     },
 
     // --- SESSION MANAGEMENT ---
@@ -66,8 +72,6 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'jules remote logs <session-id>',
         category: 'session'
     },
-
-    // --- REPOSITORY SOURCES ---
     {
         command: 'jules remote list --repo',
         description: 'List available repositories (sources) for the agent.',
@@ -96,17 +100,17 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'config'
     },
 
-    // --- GIT INTEGRATION ---
+    // --- GIT BASICS ---
+    {
+        command: 'jules git init',
+        description: 'Create an empty Git repository or reinitialize an existing one.',
+        usage: 'git init',
+        category: 'git'
+    },
     {
         command: 'jules git status',
         description: 'Show the working tree status.',
         usage: 'git status',
-        category: 'git'
-    },
-    {
-        command: 'jules git diff --staged',
-        description: 'Show changes that are staged for the next commit.',
-        usage: 'git diff --staged',
         category: 'git'
     },
     {
@@ -133,8 +137,14 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git diff',
         category: 'git'
     },
+    {
+        command: 'jules git diff --staged',
+        description: 'Show changes that are staged for the next commit.',
+        usage: 'git diff --staged',
+        category: 'git'
+    },
 
-    // --- GIT OPERATIONS (Branching & Merging) ---
+    // --- BRANCHING & MERGING ---
     {
         command: 'jules git branch',
         description: 'List local branches.',
@@ -166,25 +176,151 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
+        command: 'jules git merge --abort',
+        description: 'Abort the current conflict resolution process, and try to reconstruct the pre-merge state.',
+        usage: 'git merge --abort',
+        category: 'git'
+    },
+    {
         command: 'jules git rebase',
         description: 'Reapply commits on top of another base tip.',
         usage: 'git rebase <upstream>',
         category: 'git'
     },
     {
-        command: 'jules git log',
-        description: 'Show commit logs.',
-        usage: 'git log --oneline --graph',
-        category: 'git'
-    },
-    {
-        command: 'jules git grep',
-        description: 'Print lines matching a pattern.',
-        usage: 'git grep <pattern>',
+        command: 'jules git rebase -i',
+        description: 'Interactive rebase to edit, squash, or reorder commits.',
+        usage: 'git rebase -i <commit>',
         category: 'git'
     },
 
-    // --- GIT OPERATIONS (Advanced) ---
+    // --- LOGS & HISTORY ---
+    {
+        command: 'jules git log',
+        description: 'Show commit logs.',
+        usage: 'git log --oneline --graph --all',
+        category: 'git'
+    },
+    {
+        command: 'jules git log -p',
+        description: 'Show changes over time (patches) for each commit.',
+        usage: 'git log -p <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git reflog',
+        description: 'Manage reflog information (show local history of HEAD).',
+        usage: 'git reflog',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git blame',
+        description: 'Show what revision and author last modified each line of a file.',
+        usage: 'git blame <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git show',
+        description: 'Show various types of objects (commits, tags, trees).',
+        usage: 'git show <object>',
+        category: 'git'
+    },
+    {
+        command: 'jules git shortlog',
+        description: 'Summarize git log output.',
+        usage: 'git shortlog -sn',
+        category: 'git'
+    },
+
+    // --- REMOTE OPS ---
+    {
+        command: 'jules git remote -v',
+        description: 'List remote repositories with URLs.',
+        usage: 'git remote -v',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote add',
+        description: 'Add a new remote repository.',
+        usage: 'git remote add <name> <url>',
+        category: 'git'
+    },
+    {
+        command: 'jules git fetch',
+        description: 'Download objects and refs from another repository.',
+        usage: 'git fetch --all',
+        category: 'git'
+    },
+    {
+        command: 'jules git pull',
+        description: 'Fetch from and integrate with another repository or a local branch.',
+        usage: 'git pull origin main',
+        category: 'git'
+    },
+    {
+        command: 'jules git push',
+        description: 'Update remote refs along with associated objects.',
+        usage: 'git push origin main',
+        category: 'git'
+    },
+    {
+        command: 'jules git push -u',
+        description: 'Push and set upstream.',
+        usage: 'git push -u origin <branch>',
+        category: 'git'
+    },
+    {
+        command: 'jules git push --force',
+        description: 'Force update remote refs (use with caution).',
+        usage: 'git push --force',
+        category: 'advanced-git'
+    },
+
+    // --- UNDOING CHANGES ---
+    {
+        command: 'jules git reset',
+        description: 'Reset current HEAD to the specified state (unstage files).',
+        usage: 'git reset <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git reset --soft',
+        description: 'Reset HEAD but keep changes in index (staged).',
+        usage: 'git reset --soft <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git reset --hard',
+        description: 'Reset current HEAD, index and working tree to specified state (DANGEROUS).',
+        usage: 'git reset --hard <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git revert',
+        description: 'Create a new commit that undoes the changes of a previous commit.',
+        usage: 'git revert <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git restore',
+        description: 'Restore working tree files.',
+        usage: 'git restore <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git restore --staged',
+        description: 'Unstage files.',
+        usage: 'git restore --staged <file>',
+        category: 'git'
+    },
+
+    // --- CLEANUP & STASH ---
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'git'
+    },
     {
         command: 'jules git stash',
         description: 'Stash the changes in a dirty working directory away.',
@@ -198,49 +334,13 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git reset',
-        description: 'Reset current HEAD to the specified state.',
-        usage: 'git reset <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git reset --hard',
-        description: 'Reset current HEAD, index and working tree to specified state (DANGEROUS).',
-        usage: 'git reset --hard <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git remote -v',
-        description: 'List remote repositories with URLs.',
-        usage: 'git remote -v',
+        command: 'jules git stash list',
+        description: 'List the stash entries that you currently have.',
+        usage: 'git stash list',
         category: 'git'
     },
 
-    // --- GIT OPERATIONS (Sharing & Updating) ---
-    {
-        command: 'jules git fetch',
-        description: 'Download objects and refs from another repository.',
-        usage: 'git fetch --all',
-        category: 'git'
-    },
-    {
-        command: 'jules git clean',
-        description: 'Remove untracked files from the working tree.',
-        usage: 'git clean -fd',
-        category: 'git'
-    },
-    {
-        command: 'jules git rm',
-        description: 'Remove files from the working tree and from the index.',
-        usage: 'git rm <file>',
-        category: 'git'
-    },
-    {
-        command: 'jules git mv',
-        description: 'Move or rename a file, a directory, or a symlink.',
-        usage: 'git mv <source> <destination>',
-        category: 'git'
-    },
+    // --- ADVANCED GIT ---
     {
         command: 'jules git cherry-pick',
         description: 'Apply the changes introduced by some existing commits.',
@@ -248,132 +348,76 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git config',
-        description: 'Get and set repository or global options.',
-        usage: 'git config --global user.name "John Doe"',
-        category: 'git'
+        command: 'jules git bisect start',
+        description: 'Start binary search to find the commit that introduced a bug.',
+        usage: 'git bisect start',
+        category: 'advanced-git'
     },
     {
-        command: 'jules git reset',
-        description: 'Reset current HEAD to the specified state.',
-        usage: 'git reset [--soft | --hard] <commit>',
-        category: 'git'
+        command: 'jules git worktree list',
+        description: 'List details of each worktree.',
+        usage: 'git worktree list',
+        category: 'advanced-git'
     },
     {
-        command: 'jules git rebase',
-        description: 'Reapply commits on top of another base tip.',
-        usage: 'git rebase <branch>',
-        category: 'git'
+        command: 'jules git submodule update',
+        description: 'Update the registered submodules.',
+        usage: 'git submodule update --init --recursive',
+        category: 'advanced-git'
     },
     {
-        command: 'jules git cherry-pick',
-        description: 'Apply the changes introduced by some existing commits.',
-        usage: 'git cherry-pick <commit>',
-        category: 'git'
+        command: 'jules git archive',
+        description: 'Create an archive of files from a named tree.',
+        usage: 'git archive --format=zip --output=archive.zip HEAD',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git bundle',
+        description: 'Move objects and references by archive.',
+        usage: 'git bundle create <file> <git-rev-list-args>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git gc',
+        description: 'Cleanup unnecessary files and optimize the local repository.',
+        usage: 'git gc',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git rev-parse',
+        description: 'Pick out and massage parameters.',
+        usage: 'git rev-parse --show-toplevel',
+        category: 'advanced-git'
     },
     {
         command: 'jules git tag',
-        description: 'Create, list, delete or verify a tag object signed with GPG.',
-        usage: 'git tag',
-        category: 'git'
-    },
-    {
-        command: 'jules git stash pop',
-        description: 'Remove a single stashed state from the stash list and apply it on top of the current working tree state.',
-        usage: 'git stash pop',
-        category: 'git'
-    },
-    {
-        command: 'jules git clean',
-        description: 'Remove untracked files from the working tree.',
-        usage: 'git clean -fd',
-        category: 'git'
-    },
-    {
-        command: 'jules git blame',
-        description: 'Show what revision and author last modified each line of a file.',
-        usage: 'git blame <file>',
-        category: 'git'
-    },
-    {
-        command: 'jules git show',
-        description: 'Show various types of objects.',
-        usage: 'git show <object>',
-        category: 'git'
-    },
-    {
-        command: 'jules git revert',
-        description: 'Revert some existing commits.',
-        usage: 'git revert <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git rebase',
-        description: 'Reapply commits on top of another base tip.',
-        usage: 'git rebase <upstream>',
-        category: 'git'
-    },
-    {
-        command: 'jules git reset',
-        description: 'Reset current HEAD to the specified state.',
-        usage: 'git reset --hard <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git revert',
-        description: 'Create a new commit that undoes the changes of a previous commit.',
-        usage: 'git revert <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git cherry-pick',
-        description: 'Apply the changes introduced by some existing commits.',
-        usage: 'git cherry-pick <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git tag',
-        description: 'Create, list, delete or verify a tag object signed with GPG.',
+        description: 'Create, list, delete or verify a tag object.',
         usage: 'git tag -a v1.0 -m "Version 1.0"',
         category: 'git'
     },
     {
-        command: 'jules git clean',
-        description: 'Remove untracked files from the working tree.',
-        usage: 'git clean -fd',
+        command: 'jules git describe',
+        description: 'Give an object a human readable name based on an available ref.',
+        usage: 'git describe',
         category: 'git'
     },
     {
-        command: 'jules git show',
-        description: 'Show various types of objects.',
-        usage: 'git show <object>',
+        command: 'jules git grep',
+        description: 'Print lines matching a pattern.',
+        usage: 'git grep <pattern>',
         category: 'git'
     },
     {
-        command: 'jules git blame',
-        description: 'Show what revision and author last modified each line of a file.',
-        usage: 'git blame <file>',
-        category: 'git'
+        command: 'jules git apply',
+        description: 'Apply a patch to files and/or to the index.',
+        usage: 'git apply <patch-file>',
+        category: 'advanced-git'
     },
     {
-        command: 'jules git config',
-        description: 'Get and set repository or global options.',
-        usage: 'git config --global user.name "Your Name"',
-        category: 'git'
-    },
-
-    // --- MISC ---
-    {
-        command: 'jules git pull',
-        description: 'Fetch from and integrate with another repository or a local branch.',
-        usage: 'git pull origin main',
-        category: 'git'
-    },
-    {
-        command: 'jules git push',
-        description: 'Update remote refs along with associated objects.',
-        usage: 'git push origin main',
-        category: 'git'
+        command: 'jules git format-patch',
+        description: 'Prepare patches for e-mail submission.',
+        usage: 'git format-patch HEAD~1',
+        category: 'advanced-git'
     },
 
     // --- MISC ---
@@ -393,11 +437,5 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         command: 'jules update',
         description: 'Update the Jules CLI to the latest version.',
         category: 'misc'
-    },
-    {
-        command: 'Configure API Key',
-        description: 'Manually enter your Jules API Key for direct API mode.',
-        category: 'auth',
-        actionId: 'jules.setApiKey' // This is a VSCode command ID
     }
 ];
