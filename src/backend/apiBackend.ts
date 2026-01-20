@@ -16,6 +16,11 @@ export class ApiBackend implements JulesBackend {
     private _repoSlugCache = new Map<string, string | null>();
     private _processedActivitySets = new Map<string, Set<string>>();
 
+    // Caches
+    private _repoSlugCache = new Map<string, string | null>();
+    private _sourceNameCache = new Map<string, string | null>();
+    private _processedActivitySets = new Map<string, Set<string>>();
+
     constructor(
         private readonly _context: vscode.ExtensionContext,
         private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession) => void,
@@ -50,8 +55,6 @@ export class ApiBackend implements JulesBackend {
         this._apiKey = undefined;
         this._sourceNameCache.clear();
         this._repoSlugCache.clear();
-        this._processedActivitySets.clear();
-        this.cleanup();
         this._onStatusChange('signed-out');
         vscode.window.showInformationMessage('Jules API Key removed.');
     }
@@ -133,6 +136,7 @@ export class ApiBackend implements JulesBackend {
             this._processedActivitySets.delete(sessionRemoteId);
         } else {
             // Cleanup all
+            this._pollerStates.forEach((_, key) => this._pollerStates.set(key, false));
             this._activePollers.forEach(timer => clearTimeout(timer));
             this._pollerStates.clear();
             this._activePollers.clear();
@@ -257,17 +261,16 @@ export class ApiBackend implements JulesBackend {
         let polls = 0;
         let currentDelay = 1000;
 
-        // Ensure processedActivityIds is initialized
+        // Ensure processedActivityIds is initialized in session (for UI persistence)
         if (!chatSession.processedActivityIds) {
             chatSession.processedActivityIds = [];
         }
 
-        // Initialize dedupe set if not exists
-        let processedSet = this._processedActivitySets.get(sessionName);
-        if (!processedSet) {
-            processedSet = new Set<string>();
-            this._processedActivitySets.set(sessionName, processedSet);
+        // Initialize local Set for O(1) checks
+        if (!this._processedActivitySets.has(sessionName)) {
+            this._processedActivitySets.set(sessionName, new Set(chatSession.processedActivityIds));
         }
+        const processedSet = this._processedActivitySets.get(sessionName)!;
 
         // Set active state
         this._pollerStates.set(sessionName, true);
@@ -281,7 +284,6 @@ export class ApiBackend implements JulesBackend {
                 // Auto-cleanup on timeout
                 this._pollerStates.delete(sessionName);
                 this._activePollers.delete(sessionName);
-                this._processedActivitySets.delete(sessionName);
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }
@@ -297,9 +299,6 @@ export class ApiBackend implements JulesBackend {
 
                 let hasNewActivity = false;
                 const activities = data.activities || [];
-
-                // Sort by create time if needed, but API usually returns chronological or reverse
-                // We'll iterate and check IDs.
 
                 for (const act of activities) {
                     // Check if already processed using Set (O(1))
@@ -367,7 +366,7 @@ export class ApiBackend implements JulesBackend {
                 let result: string | null = null;
 
                 if (url) {
-                    // Match git@github.com:user/repo.git or https://github.com/user/repo
+                    // Match git@github.com:owner/repo.git or https://github.com/owner/repo.git
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
                     if (match) {
                         result = match[1].replace(/\.git$/, '');
