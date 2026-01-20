@@ -12,6 +12,9 @@ export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
     private _activePollers = new Map<string, NodeJS.Timeout>();
     private _pollerStates = new Map<string, boolean>();
+    private _sourceNameCache = new Map<string, string | null>();
+    private _repoSlugCache = new Map<string, string | null>();
+    private _processedActivitySets = new Map<string, Set<string>>();
 
     // Caches
     private _repoSlugCache = new Map<string, string | null>();
@@ -169,6 +172,7 @@ export class ApiBackend implements JulesBackend {
         // List sources and find the one matching the repo
         // TODO: Handle pagination if user has many sources
         try {
+            const normalizedSlug = repoSlug.toLowerCase();
             const res = await fetch(`${API_BASE}/sources`, {
                 headers: { 'x-goog-api-key': this._apiKey! }
             });
@@ -298,12 +302,12 @@ export class ApiBackend implements JulesBackend {
 
                 for (const act of activities) {
                     // Check if already processed using Set (O(1))
-                    if (processedSet.has(act.name)) {
+                    if (processedSet!.has(act.name)) {
                         continue;
                     }
 
                     // Mark as seen immediately
-                    processedSet.add(act.name);
+                    processedSet!.add(act.name);
                     chatSession.processedActivityIds!.push(act.name);
                     hasNewActivity = true;
 
@@ -365,7 +369,7 @@ export class ApiBackend implements JulesBackend {
                     // Match git@github.com:owner/repo.git or https://github.com/owner/repo.git
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
                     if (match) {
-                        result = match[1];
+                        result = match[1].replace(/\.git$/, '');
                     }
                 }
 
