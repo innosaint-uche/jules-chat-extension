@@ -168,6 +168,7 @@ export class ApiBackend implements JulesBackend {
         // List sources and find the one matching the repo
         // TODO: Handle pagination if user has many sources
         try {
+            const normalizedSlug = repoSlug.toLowerCase();
             const res = await fetch(`${API_BASE}/sources`, {
                 headers: { 'x-goog-api-key': this._apiKey! }
             });
