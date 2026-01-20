@@ -1,29 +1,4 @@
 
-import json
-from playwright.sync_api import sync_playwright
-
-def verify_commands_render():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-
-        # Load the mock HTML directly (since we can't easily spin up VS Code webview)
-        # We will create a mock HTML file that includes the CSS/JS structure from extension.ts
-        # but injects our actual commandData.ts content (simulating what extension.ts does)
-
-        # First, read commandData.ts to extract the list
-        with open('src/commandData.ts', 'r') as f:
-            content = f.read()
-            # Extract JSON array part roughly or just import it if it was json
-            # Since it's TS, we'll strip the export and just eval it or use a mock for verification
-            # Actually, let's just use a representative subset or try to parse it.
-            # Parsing TS in python is hard.
-            # I will instead create a mock HTML that represents the structure we want to verify.
-            pass
-
-        # Let's create a simple HTML file that mimics the structure in extension.ts
-        # and verify the styling/rendering of a few commands.
-        html_content = """
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -65,14 +40,3 @@ def verify_commands_render():
             </div>
         </body>
         </html>
-        """
-
-        with open('verification/mock_view.html', 'w') as f:
-            f.write(html_content)
-
-        page.goto('file://' + os.path.abspath('verification/mock_view.html'))
-        page.screenshot(path='verification/commands_verification.png')
-
-import os
-if __name__ == "__main__":
-    verify_commands_render()

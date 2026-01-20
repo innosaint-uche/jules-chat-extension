@@ -21,6 +21,11 @@ export class ApiBackend implements JulesBackend {
     private _sourceNameCache = new Map<string, string | null>();
     private _processedActivitySets = new Map<string, Set<string>>();
 
+    // Caches
+    private _sourceNameCache = new Map<string, string>();
+    private _repoSlugCache = new Map<string, string | null>();
+    private _processedActivitySets = new Map<string, Set<string>>();
+
     constructor(
         private readonly _context: vscode.ExtensionContext,
         private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession) => void,
@@ -124,10 +129,7 @@ export class ApiBackend implements JulesBackend {
     public cleanup(sessionRemoteId?: string) {
         if (sessionRemoteId) {
             // Stop poller
-            if (this._pollerStates.has(sessionRemoteId)) {
-                this._pollerStates.set(sessionRemoteId, false);
-                this._pollerStates.delete(sessionRemoteId);
-            }
+            this._pollerStates.set(sessionRemoteId, false);
             if (this._activePollers.has(sessionRemoteId)) {
                 clearTimeout(this._activePollers.get(sessionRemoteId));
                 this._activePollers.delete(sessionRemoteId);
@@ -136,7 +138,9 @@ export class ApiBackend implements JulesBackend {
             this._processedActivitySets.delete(sessionRemoteId);
         } else {
             // Cleanup all
-            this._pollerStates.forEach((_, key) => this._pollerStates.set(key, false));
+            // We can't iterate and set false easily if we are clearing the map, but setting false is for the async loop.
+            // Since we clear timers, the loops might still run once but will check the map.
+            // If we clear the map, .get() returns undefined which is falsy.
             this._activePollers.forEach(timer => clearTimeout(timer));
             this._pollerStates.clear();
             this._activePollers.clear();
@@ -184,7 +188,9 @@ export class ApiBackend implements JulesBackend {
             });
 
             const result = source ? source.name : null;
-            this._sourceNameCache.set(repoSlug, result);
+            if (result) {
+                this._sourceNameCache.set(repoSlug, result);
+            }
             return result;
         } catch (e) {
             console.error('Error resolving source', e);
@@ -266,11 +272,12 @@ export class ApiBackend implements JulesBackend {
             chatSession.processedActivityIds = [];
         }
 
-        // Initialize local Set for O(1) checks
-        if (!this._processedActivitySets.has(sessionName)) {
-            this._processedActivitySets.set(sessionName, new Set(chatSession.processedActivityIds));
+        // Initialize processed set for this session (Optimization: O(1) lookup)
+        let processedSet = this._processedActivitySets.get(sessionName);
+        if (!processedSet) {
+            processedSet = new Set(chatSession.processedActivityIds);
+            this._processedActivitySets.set(sessionName, processedSet);
         }
-        const processedSet = this._processedActivitySets.get(sessionName)!;
 
         // Set active state
         this._pollerStates.set(sessionName, true);
@@ -318,7 +325,7 @@ export class ApiBackend implements JulesBackend {
 
                     let text = '';
                     if (act.message) text = act.message.text || JSON.stringify(act.message);
-                    else if (act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
+                    else if (act.type === 'TOOL_USE' && act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
                     else if (act.type === 'PLAN_UPDATE') text = '📋 Plan updated';
 
                     // Fallback for unknown types but potentially useful info
@@ -369,7 +376,9 @@ export class ApiBackend implements JulesBackend {
                     // Match git@github.com:owner/repo.git or https://github.com/owner/repo.git
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
                     if (match) {
-                        result = match[1].replace(/\.git$/, '');
+                        result = match[1];
+                        // Strip .git if present
+                        if (result.endsWith('.git')) result = result.slice(0, -4);
                     }
                 }
 
