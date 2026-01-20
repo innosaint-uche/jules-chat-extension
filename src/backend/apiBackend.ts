@@ -13,6 +13,11 @@ export class ApiBackend implements JulesBackend {
     private _activePollers = new Map<string, NodeJS.Timeout>();
     private _pollerStates = new Map<string, boolean>();
 
+    // Caches
+    private _sourceNameCache = new Map<string, string>();
+    private _repoSlugCache = new Map<string, string | null>();
+    private _processedActivitySets = new Map<string, Set<string>>();
+
     constructor(
         private readonly _context: vscode.ExtensionContext,
         private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession) => void,
@@ -46,6 +51,7 @@ export class ApiBackend implements JulesBackend {
         await this._context.secrets.delete('jules.apiKey');
         this._apiKey = undefined;
         this._sourceNameCache.clear();
+        this._repoSlugCache.clear();
         this._onStatusChange('signed-out');
         vscode.window.showInformationMessage('Jules API Key removed.');
     }
@@ -115,10 +121,7 @@ export class ApiBackend implements JulesBackend {
     public cleanup(sessionRemoteId?: string) {
         if (sessionRemoteId) {
             // Stop poller
-            if (this._pollerStates.has(sessionRemoteId)) {
-                this._pollerStates.get(sessionRemoteId)!.active = false;
-                this._pollerStates.delete(sessionRemoteId);
-            }
+            this._pollerStates.set(sessionRemoteId, false);
             if (this._activePollers.has(sessionRemoteId)) {
                 clearTimeout(this._activePollers.get(sessionRemoteId));
                 this._activePollers.delete(sessionRemoteId);
@@ -127,7 +130,9 @@ export class ApiBackend implements JulesBackend {
             this._processedActivitySets.delete(sessionRemoteId);
         } else {
             // Cleanup all
-            this._pollerStates.forEach(state => state.active = false);
+            // We can't iterate and set false easily if we are clearing the map, but setting false is for the async loop.
+            // Since we clear timers, the loops might still run once but will check the map.
+            // If we clear the map, .get() returns undefined which is falsy.
             this._activePollers.forEach(timer => clearTimeout(timer));
             this._pollerStates.clear();
             this._activePollers.clear();
@@ -158,6 +163,8 @@ export class ApiBackend implements JulesBackend {
             return this._sourceNameCache.get(repoSlug)!;
         }
 
+        const normalizedSlug = repoSlug.toLowerCase();
+
         // List sources and find the one matching the repo
         // TODO: Handle pagination if user has many sources
         try {
@@ -172,7 +179,9 @@ export class ApiBackend implements JulesBackend {
             });
 
             const result = source ? source.name : null;
-            this._sourceNameCache.set(repoSlug, result);
+            if (result) {
+                this._sourceNameCache.set(repoSlug, result);
+            }
             return result;
         } catch (e) {
             console.error('Error resolving source', e);
@@ -236,7 +245,7 @@ export class ApiBackend implements JulesBackend {
     private async _pollActivities(sessionName: string, chatSession: ChatSession) {
         // Stop any existing poller for this session
         if (this._pollerStates.has(sessionName)) {
-            this._pollerStates.get(sessionName)!.active = false;
+            this._pollerStates.set(sessionName, false);
         }
         if (this._activePollers.has(sessionName)) {
             clearTimeout(this._activePollers.get(sessionName)!);
@@ -252,6 +261,13 @@ export class ApiBackend implements JulesBackend {
         // Ensure processedActivityIds is initialized
         if (!chatSession.processedActivityIds) {
             chatSession.processedActivityIds = [];
+        }
+
+        // Initialize processed set for this session (Optimization: O(1) lookup)
+        let processedSet = this._processedActivitySets.get(sessionName);
+        if (!processedSet) {
+            processedSet = new Set(chatSession.processedActivityIds);
+            this._processedActivitySets.set(sessionName, processedSet);
         }
 
         // Set active state
@@ -288,12 +304,12 @@ export class ApiBackend implements JulesBackend {
 
                 for (const act of activities) {
                     // Check if already processed using Set (O(1))
-                    if (processedSet.has(act.name)) {
+                    if (processedSet!.has(act.name)) {
                         continue;
                     }
 
                     // Mark as seen immediately
-                    processedSet.add(act.name);
+                    processedSet!.add(act.name);
                     chatSession.processedActivityIds!.push(act.name);
                     hasNewActivity = true;
 
@@ -304,7 +320,7 @@ export class ApiBackend implements JulesBackend {
 
                     let text = '';
                     if (act.message) text = act.message.text || JSON.stringify(act.message);
-                    else if (act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
+                    else if (act.type === 'TOOL_USE' && act.toolUse) text = `🛠️ Used Tool: ${act.toolUse.tool}`;
                     else if (act.type === 'PLAN_UPDATE') text = '📋 Plan updated';
 
                     // Fallback for unknown types but potentially useful info
@@ -355,6 +371,8 @@ export class ApiBackend implements JulesBackend {
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
                     if (match) {
                         result = match[1];
+                        // Strip .git if present
+                        if (result.endsWith('.git')) result = result.slice(0, -4);
                     }
                 }
 
@@ -362,8 +380,5 @@ export class ApiBackend implements JulesBackend {
                 resolve(result);
             });
         });
-
-        this._sourceNameCache.set(cwd, slug);
-        return slug;
     }
 }

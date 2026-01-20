@@ -26,6 +26,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'auth',
         actionId: 'status'
     },
+    {
+        command: 'Configure API Key',
+        description: 'Manually enter your Jules API Key for direct API mode.',
+        category: 'auth',
+        actionId: 'jules.setApiKey' // This is a VSCode command ID
+    },
 
     // --- SESSION MANAGEMENT ---
     {
@@ -254,42 +260,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git reset',
-        description: 'Reset current HEAD to the specified state.',
-        usage: 'git reset [--soft | --hard] <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git rebase',
-        description: 'Reapply commits on top of another base tip.',
-        usage: 'git rebase <branch>',
-        category: 'git'
-    },
-    {
-        command: 'jules git cherry-pick',
-        description: 'Apply the changes introduced by some existing commits.',
-        usage: 'git cherry-pick <commit>',
-        category: 'git'
-    },
-    {
         command: 'jules git tag',
         description: 'Create, list, delete or verify a tag object signed with GPG.',
         usage: 'git tag',
         category: 'git'
     },
     {
-        command: 'jules git stash pop',
-        description: 'Remove a single stashed state from the stash list and apply it on top of the current working tree state.',
-        usage: 'git stash pop',
-        category: 'git'
-    },
-    {
-        command: 'jules git clean',
-        description: 'Remove untracked files from the working tree.',
-        usage: 'git clean -fd',
-        category: 'git'
-    },
-    {
         command: 'jules git blame',
         description: 'Show what revision and author last modified each line of a file.',
         usage: 'git blame <file>',
@@ -299,66 +275,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         command: 'jules git show',
         description: 'Show various types of objects.',
         usage: 'git show <object>',
-        category: 'git'
-    },
-    {
-        command: 'jules git revert',
-        description: 'Revert some existing commits.',
-        usage: 'git revert <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git rebase',
-        description: 'Reapply commits on top of another base tip.',
-        usage: 'git rebase <upstream>',
-        category: 'git'
-    },
-    {
-        command: 'jules git reset',
-        description: 'Reset current HEAD to the specified state.',
-        usage: 'git reset --hard <commit>',
         category: 'git'
     },
     {
         command: 'jules git revert',
         description: 'Create a new commit that undoes the changes of a previous commit.',
         usage: 'git revert <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git cherry-pick',
-        description: 'Apply the changes introduced by some existing commits.',
-        usage: 'git cherry-pick <commit>',
-        category: 'git'
-    },
-    {
-        command: 'jules git tag',
-        description: 'Create, list, delete or verify a tag object signed with GPG.',
-        usage: 'git tag -a v1.0 -m "Version 1.0"',
-        category: 'git'
-    },
-    {
-        command: 'jules git clean',
-        description: 'Remove untracked files from the working tree.',
-        usage: 'git clean -fd',
-        category: 'git'
-    },
-    {
-        command: 'jules git show',
-        description: 'Show various types of objects.',
-        usage: 'git show <object>',
-        category: 'git'
-    },
-    {
-        command: 'jules git blame',
-        description: 'Show what revision and author last modified each line of a file.',
-        usage: 'git blame <file>',
-        category: 'git'
-    },
-    {
-        command: 'jules git config',
-        description: 'Get and set repository or global options.',
-        usage: 'git config --global user.name "Your Name"',
         category: 'git'
     },
 
@@ -375,8 +297,6 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git push origin main',
         category: 'git'
     },
-
-    // --- MISC ---
     {
         command: 'jules version',
         description: 'Display the installed version of the Jules CLI.',
@@ -393,11 +313,5 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         command: 'jules update',
         description: 'Update the Jules CLI to the latest version.',
         category: 'misc'
-    },
-    {
-        command: 'Configure API Key',
-        description: 'Manually enter your Jules API Key for direct API mode.',
-        category: 'auth',
-        actionId: 'jules.setApiKey' // This is a VSCode command ID
     }
 ];
