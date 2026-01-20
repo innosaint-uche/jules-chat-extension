@@ -12,6 +12,14 @@ export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
     private _activePollers = new Map<string, NodeJS.Timeout>();
     private _pollerStates = new Map<string, boolean>();
+    private _sourceNameCache = new Map<string, string | null>();
+    private _repoSlugCache = new Map<string, string | null>();
+    private _processedActivitySets = new Map<string, Set<string>>();
+
+    // Caches
+    private _repoSlugCache = new Map<string, string | null>();
+    private _sourceNameCache = new Map<string, string | null>();
+    private _processedActivitySets = new Map<string, Set<string>>();
 
     // Caches
     private _sourceNameCache = new Map<string, string>();
@@ -168,6 +176,7 @@ export class ApiBackend implements JulesBackend {
         // List sources and find the one matching the repo
         // TODO: Handle pagination if user has many sources
         try {
+            const normalizedSlug = repoSlug.toLowerCase();
             const res = await fetch(`${API_BASE}/sources`, {
                 headers: { 'x-goog-api-key': this._apiKey! }
             });
@@ -258,7 +267,7 @@ export class ApiBackend implements JulesBackend {
         let polls = 0;
         let currentDelay = 1000;
 
-        // Ensure processedActivityIds is initialized
+        // Ensure processedActivityIds is initialized in session (for UI persistence)
         if (!chatSession.processedActivityIds) {
             chatSession.processedActivityIds = [];
         }
@@ -282,7 +291,6 @@ export class ApiBackend implements JulesBackend {
                 // Auto-cleanup on timeout
                 this._pollerStates.delete(sessionName);
                 this._activePollers.delete(sessionName);
-                this._pollerStates.delete(sessionName);
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }
@@ -298,9 +306,6 @@ export class ApiBackend implements JulesBackend {
 
                 let hasNewActivity = false;
                 const activities = data.activities || [];
-
-                // Sort by create time if needed, but API usually returns chronological or reverse
-                // We'll iterate and check IDs.
 
                 for (const act of activities) {
                     // Check if already processed using Set (O(1))
@@ -356,7 +361,7 @@ export class ApiBackend implements JulesBackend {
         this._activePollers.set(sessionName, timer);
     }
 
-    // --- Helpers (Duplicated from CliBackend/Extension - could be shared utils) ---
+    // --- Helpers ---
     private _getGitHubRepoSlug(cwd: string): Promise<string | null> {
         if (this._repoSlugCache.has(cwd)) {
             return Promise.resolve(this._repoSlugCache.get(cwd)!);
@@ -368,6 +373,7 @@ export class ApiBackend implements JulesBackend {
                 let result: string | null = null;
 
                 if (url) {
+                    // Match git@github.com:owner/repo.git or https://github.com/owner/repo.git
                     const match = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
                     if (match) {
                         result = match[1];
