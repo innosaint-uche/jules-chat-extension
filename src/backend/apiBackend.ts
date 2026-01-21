@@ -12,17 +12,9 @@ export class ApiBackend implements JulesBackend {
     private _apiKey: string | undefined;
     private _activePollers = new Map<string, NodeJS.Timeout>();
     private _pollerStates = new Map<string, boolean>();
-    private _sourceNameCache = new Map<string, string | null>();
-    private _repoSlugCache = new Map<string, string | null>();
-    private _processedActivitySets = new Map<string, Set<string>>();
 
     // Caches
-    private _repoSlugCache = new Map<string, string | null>();
     private _sourceNameCache = new Map<string, string | null>();
-    private _processedActivitySets = new Map<string, Set<string>>();
-
-    // Caches
-    private _sourceNameCache = new Map<string, string>();
     private _repoSlugCache = new Map<string, string | null>();
     private _processedActivitySets = new Map<string, Set<string>>();
 
@@ -291,6 +283,10 @@ export class ApiBackend implements JulesBackend {
                 // Auto-cleanup on timeout
                 this._pollerStates.delete(sessionName);
                 this._activePollers.delete(sessionName);
+                // Bolt: Optimize memory by clearing the set.
+                // It can be rebuilt from chatSession.processedActivityIds if resumed.
+                this._processedActivitySets.delete(sessionName);
+
                 this._onOutput('⚠️ Polling timed out. Check dashboard for updates.', 'system', chatSession);
                 return;
             }

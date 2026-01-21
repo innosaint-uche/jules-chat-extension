@@ -229,12 +229,16 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git rebase <upstream>',
         category: 'git'
     },
-
-    // --- GIT INTEGRATION: LOGS & HISTORY ---
     {
         command: 'jules git rebase -i',
         description: 'Interactive rebase to edit, squash, or reorder commits.',
         usage: 'git rebase -i <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
         category: 'git'
     },
 
@@ -278,15 +282,15 @@ export const CLI_COMMANDS: CommandDefinition[] = [
 
     // --- REMOTE OPS ---
     {
-        command: 'jules git reflog',
-        description: 'Manage reflog information.',
-        usage: 'git reflog',
-        category: 'git'
-    },
-    {
         command: 'jules git remote add',
         description: 'Add a new remote repository.',
         usage: 'git remote add <name> <url>',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote -v',
+        description: 'Show verbose remote list.',
+        usage: 'git remote -v',
         category: 'git'
     },
     {
@@ -328,15 +332,21 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
+        command: 'jules git reset --hard',
+        description: 'Reset current HEAD, index and working tree (discard all changes).',
+        usage: 'git reset --hard',
+        category: 'advanced-git'
+    },
+    {
         command: 'jules git tag',
         description: 'Create, list, delete or verify a tag object signed with GPG.',
         usage: 'git tag',
         category: 'git'
     },
     {
-        command: 'jules git blame',
-        description: 'Show what revision and author last modified each line of a file.',
-        usage: 'git blame <file>',
+        command: 'jules git stash',
+        description: 'Stash the changes in a dirty working directory away.',
+        usage: 'git stash',
         category: 'git'
     },
     {
@@ -350,6 +360,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         description: 'Create a new commit that undoes the changes of a previous commit.',
         usage: 'git revert <commit>',
         category: 'git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'advanced-git'
     },
 
     // --- MISC ---
