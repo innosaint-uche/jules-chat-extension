@@ -640,9 +640,6 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 function backToList() {
                     vscode.postMessage({ type: 'backToList' });
                 }
-                function createNewSession() { vscode.postMessage({ type: 'newSession' }); }
-                function switchSession(id) { vscode.postMessage({ type: 'switchSession', id: id }); }
-                function backToList() { vscode.postMessage({ type: 'backToList' }); }
 
                 function renderSessionList(sessions) {
                     sessionListEl.innerHTML = '';
