@@ -54,4 +54,9 @@ export interface JulesBackend {
      * API: Polls for activities.
      */
     refreshSession?(session: ChatSession): Promise<void>;
+
+    /**
+     * Cleans up resources (e.g. stop polling timers).
+     */
+    cleanup?(): void;
 }
