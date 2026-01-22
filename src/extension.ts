@@ -4,6 +4,9 @@ import { ApiBackend } from './backend/apiBackend';
 import { JulesBackend, JulesAuthStatus, ChatSession, ChatMessage } from './backend/types';
 import { CLI_COMMANDS } from './commandData';
 
+// Cache the stringified commands to avoid re-serialization on every view render
+let _cachedCmdList: string | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
     const provider = new JulesChatProvider(context.extensionUri, context);
 
@@ -11,6 +14,9 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(JulesChatProvider.viewType, provider)
     );
+
+    // Ensure cleanup on deactivation
+    context.subscriptions.push({ dispose: () => provider.cleanup() });
 
     // 2. Register Commands
     const register = (cmd: string, handler: () => void) => {
@@ -88,6 +94,12 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
     public async switchBackend(mode: 'cli' | 'api') {
         await vscode.workspace.getConfiguration('jules').update('mode', mode, vscode.ConfigurationTarget.Global);
+    }
+
+    public cleanup() {
+        if (this._backend.cleanup) {
+            this._backend.cleanup();
+        }
     }
 
     public resolveWebviewView(
@@ -368,7 +380,10 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        const cmdList = JSON.stringify(CLI_COMMANDS);
+        if (!_cachedCmdList) {
+            _cachedCmdList = JSON.stringify(CLI_COMMANDS);
+        }
+        const cmdList = _cachedCmdList;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
