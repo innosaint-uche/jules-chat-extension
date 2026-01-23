@@ -1,245 +1,82 @@
 <!DOCTYPE html>
-        <html lang="en">
-        <head>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --text: #cccccc;
+            --user-bg: #0e639c;
+            --user-text: #ffffff;
+            --jules-bg: #252526;
+            --input-bg: #3c3c3c;
+            --border: #454545;
+            --vscode-button-secondaryBackground: #3a3d41;
+            --vscode-button-secondaryForeground: #ffffff;
+            --vscode-descriptionForeground: #8b949e;
+            --vscode-textLink-foreground: #3794ff;
+        }
+        body { font-family: sans-serif; padding: 0; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; }
+
+        /* VIEWS */
+        .view { display: none; flex-direction: column; height: 100%; }
+        .view.active { display: flex; }
+
+        /* TABS */
+        .tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--jules-bg); }
+        .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-bottom: 2px solid transparent; font-size: 12px; font-weight: 600; opacity: 0.7; }
+        .tab.active { border-bottom-color: var(--user-bg); opacity: 1; }
+        .tab:hover { opacity: 1; }
+
+        /* COMMANDS LIST VIEW */
+        #commands-view { padding: 10px; overflow-y: auto; }
+        .cmd-card { background: var(--jules-bg); border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid var(--border); }
+        .cmd-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .cmd-name { font-family: monospace; font-weight: bold; color: var(--vscode-textLink-foreground); }
+        .cmd-desc { font-size: 12px; color: var(--text); margin-bottom: 6px; }
+        .cmd-usage { font-family: monospace; font-size: 10px; background: var(--input-bg); padding: 4px; border-radius: 4px; color: var(--vscode-descriptionForeground); word-break: break-all; }
+        .cmd-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .cmd-btn { padding: 2px 8px; font-size: 11px; cursor: pointer; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 2px; }
+    </style>
+</head>
+<body>
+    <div id="tab-bar" class="tab-bar">
+        <div class="tab" onclick="switchTab('sessions')">TASKS</div>
+        <div class="tab active" onclick="switchTab('commands')">CLI COMMANDS</div>
+    </div>
+
+    <div id="commands-view" class="view active">
+        <!-- Commands injected here -->
+    </div>
 
     <script>
-    function acquireVsCodeApi() {
-        return {
-            postMessage: function(msg) { console.log('postMessage:', msg); },
-            setState: function(state) { console.log('setState:', state); },
-            getState: function() { return {}; }
-        };
-    }
+        const commands = [{"command":"jules login","description":"Authenticate the CLI with your Google account. Opens a browser window for OAuth flow.","category":"auth","actionId":"login"},{"command":"jules logout","description":"Sign out and remove local credentials from the machine.","category":"auth","actionId":"logout"},{"command":"jules auth check","description":"Verify current authentication status and token validity.","category":"auth","actionId":"status"},{"command":"Configure API Key","description":"Manually enter your Jules API Key for direct API mode.","category":"auth","actionId":"jules.setApiKey"},{"command":"jules remote new","description":"Start a new chat session with the agent for a specific repository.","usage":"jules remote new --repo <owner/repo> --session \"Your prompt\"","category":"session"},{"command":"jules remote list","description":"List active sessions and their current status (e.g., RUNNING, PAUSED).","usage":"jules remote list --session","category":"session","actionId":"remote-list-session"},{"command":"jules remote show","description":"Show detailed metadata for a specific session.","usage":"jules remote show <session-id>","category":"session"},{"command":"jules remote pull","description":"Download code changes (patches) from a remote session to your local working directory.","usage":"jules remote pull --session <session-id>","category":"session","actionId":"remote-pull"},{"command":"jules remote delete","description":"Delete a session permanently. This cannot be undone.","usage":"jules remote delete <session-id>","category":"session"},{"command":"jules remote logs","description":"Fetch logs and conversation history for a specific session.","usage":"jules remote logs <session-id>","category":"session"},{"command":"jules remote list --repo","description":"List available repositories (sources) linked to your account.","usage":"jules remote list --repo","category":"session","actionId":"remote-list-repo"},{"command":"jules source link","description":"Link a new GitHub repository to Jules.","usage":"jules source link <owner/repo>","category":"session"},{"command":"jules source unlink","description":"Unlink a repository from Jules.","usage":"jules source unlink <owner/repo>","category":"session"},{"command":"jules config list","description":"List all current configuration settings.","usage":"jules config list","category":"config"},{"command":"jules config get","description":"Get the value of a specific configuration key.","usage":"jules config get <key>","category":"config"},{"command":"jules config set","description":"Set a configuration value.","usage":"jules config set <key> <value>","category":"config"},{"command":"jules config unset","description":"Remove a configuration value.","usage":"jules config unset <key>","category":"config"},{"command":"jules git init","description":"Create an empty Git repository or reinitialize an existing one.","usage":"git init","category":"git"},{"command":"jules git status","description":"Show the working tree status.","usage":"git status","category":"git"},{"command":"jules git add","description":"Add file contents to the index (stage files).","usage":"git add <pathspec>","category":"git"},{"command":"jules git add .","description":"Add all changed files in the current directory to the index.","usage":"git add .","category":"git"},{"command":"jules git add -p","description":"Interactively choose hunks of patch between the index and the work tree.","usage":"git add -p","category":"git"},{"command":"jules git commit","description":"Record changes to the repository with a message.","usage":"git commit -m \"message\"","category":"git"},{"command":"jules git commit --amend","description":"Amend the previous commit (change message or add files).","usage":"git commit --amend","category":"git"},{"command":"jules git diff","description":"Show changes between commits, commit and working tree, etc.","usage":"git diff","category":"git"},{"command":"jules git diff --staged","description":"Show changes that are staged for the next commit.","usage":"git diff --staged","category":"git"},{"command":"jules git diff --name-only","description":"Show only names of changed files.","usage":"git diff --name-only","category":"git"},{"command":"jules git diff --check","description":"Warn if changes introduce conflict markers or whitespace errors.","usage":"git diff --check","category":"git"},{"command":"jules git branch","description":"List local branches.","usage":"git branch","category":"git"},{"command":"jules git branch -a","description":"List all branches (local and remote).","usage":"git branch -a","category":"git"},{"command":"jules git branch -d","description":"Delete a branch.","usage":"git branch -d <branch>","category":"git"},{"command":"jules git branch -D","description":"Force delete a branch.","usage":"git branch -D <branch>","category":"git"},{"command":"jules git checkout","description":"Switch branches or restore working tree files.","usage":"git checkout <branch>","category":"git"},{"command":"jules git checkout -b","description":"Create a new branch and switch to it immediately.","usage":"git checkout -b <new-branch>","category":"git"},{"command":"jules git switch","description":"Switch branches (newer alternative to checkout).","usage":"git switch <branch>","category":"git"},{"command":"jules git switch -c","description":"Create and switch to a new branch.","usage":"git switch -c <new-branch>","category":"git"},{"command":"jules git merge","description":"Join two or more development histories together.","usage":"git merge <branch>","category":"git"},{"command":"jules git merge --abort","description":"Abort the current conflict resolution process.","usage":"git merge --abort","category":"git"},{"command":"jules git merge --squash","description":"Merge branch but pause before committing (one commit).","usage":"git merge --squash <branch>","category":"git"},{"command":"jules git rebase","description":"Reapply commits on top of another base tip.","usage":"git rebase <upstream>","category":"git"},{"command":"jules git rebase -i","description":"Interactive rebase to edit, squash, or reorder commits.","usage":"git rebase -i <commit>","category":"git"},{"command":"jules git rebase --abort","description":"Abort the rebase operation.","usage":"git rebase --abort","category":"git"},{"command":"jules git rebase --continue","description":"Continue the rebase operation after resolving conflicts.","usage":"git rebase --continue","category":"git"},{"command":"jules git log","description":"Show commit logs.","usage":"git log --oneline --graph --all","category":"git"},{"command":"jules git log -p","description":"Show changes over time (patches) for each commit.","usage":"git log -p <file>","category":"git"},{"command":"jules git log --stat","description":"Show statistics for changed files in each commit.","usage":"git log --stat","category":"git"},{"command":"jules git log --author","description":"Limit commit output to ones with author header matching pattern.","usage":"git log --author=\"<pattern>\"","category":"git"},{"command":"jules git log --since","description":"Show commits more recent than a specific date.","usage":"git log --since=\"2 weeks ago\"","category":"git"},{"command":"jules git reflog","description":"Manage reflog information (show local history of HEAD).","usage":"git reflog","category":"advanced-git"},{"command":"jules git blame","description":"Show what revision and author last modified each line of a file.","usage":"git blame <file>","category":"git"},{"command":"jules git show","description":"Show various types of objects (commits, tags, trees).","usage":"git show <object>","category":"git"},{"command":"jules git shortlog","description":"Summarize git log output.","usage":"git shortlog -sn","category":"git"},{"command":"jules git remote -v","description":"Show remote repositories and their URLs.","usage":"git remote -v","category":"git"},{"command":"jules git remote add","description":"Add a new remote repository.","usage":"git remote add <name> <url>","category":"git"},{"command":"jules git remote remove","description":"Remove a remote.","usage":"git remote remove <name>","category":"git"},{"command":"jules git fetch","description":"Download objects and refs from another repository.","usage":"git fetch --all","category":"git"},{"command":"jules git fetch --prune","description":"Fetch and remove remote-tracking references that no longer exist on the remote.","usage":"git fetch --prune","category":"git"},{"command":"jules git pull","description":"Fetch from and integrate with another repository or a local branch.","usage":"git pull origin main","category":"git"},{"command":"jules git push","description":"Update remote refs along with associated objects.","usage":"git push origin main","category":"git"},{"command":"jules git push -u","description":"Push and set upstream.","usage":"git push -u origin <branch>","category":"git"},{"command":"jules git push --force","description":"Force update remote refs (use with caution).","usage":"git push --force","category":"advanced-git"},{"command":"jules git push --tags","description":"Push all tags to remote.","usage":"git push --tags","category":"git"},{"command":"jules git reset","description":"Reset current HEAD to the specified state (unstage files).","usage":"git reset <file>","category":"git"},{"command":"jules git reset --soft","description":"Reset HEAD to <commit>, but keep changes staged.","usage":"git reset --soft <commit>","category":"git"},{"command":"jules git reset --hard","description":"Reset HEAD to <commit>, discarding all changes.","usage":"git reset --hard <commit>","category":"advanced-git"},{"command":"jules git restore","description":"Restore working tree files.","usage":"git restore <file>","category":"git"},{"command":"jules git restore --staged","description":"Unstage files.","usage":"git restore --staged <file>","category":"git"},{"command":"jules git revert","description":"Create a new commit that undoes the changes of a previous commit.","usage":"git revert <commit>","category":"git"},{"command":"jules git stash","description":"Stash the changes in a dirty working directory away.","usage":"git stash","category":"git"},{"command":"jules git stash list","description":"List the stash entries that you currently have.","usage":"git stash list","category":"git"},{"command":"jules git stash pop","description":"Apply the changes from the stash and remove them from the stash list.","usage":"git stash pop","category":"git"},{"command":"jules git stash apply","description":"Apply the changes from the stash but keep them in the stash list.","usage":"git stash apply","category":"git"},{"command":"jules git stash drop","description":"Remove a single stashed state from the stash list.","usage":"git stash drop","category":"git"},{"command":"jules git stash clear","description":"Remove all the stashed states.","usage":"git stash clear","category":"advanced-git"},{"command":"jules git clean -n","description":"Show what files would be removed (dry run).","usage":"git clean -n","category":"git"},{"command":"jules git clean -fd","description":"Remove untracked files and directories.","usage":"git clean -fd","category":"advanced-git"},{"command":"jules git cherry-pick","description":"Apply the changes introduced by some existing commits.","usage":"git cherry-pick <commit>","category":"advanced-git"},{"command":"jules git cherry-pick --abort","description":"Cancel the operation and return to the pre-sequence state.","usage":"git cherry-pick --abort","category":"advanced-git"},{"command":"jules git bisect start","description":"Start a bisect session to find a bug.","usage":"git bisect start","category":"advanced-git"},{"command":"jules git bisect bad","description":"Mark the current commit as bad.","usage":"git bisect bad","category":"advanced-git"},{"command":"jules git bisect good","description":"Mark the current commit (or older one) as good.","usage":"git bisect good <commit>","category":"advanced-git"},{"command":"jules git submodule update --init --recursive","description":"Initialize and update submodules recursively.","usage":"git submodule update --init --recursive","category":"advanced-git"},{"command":"jules git worktree list","description":"List details of each worktree.","usage":"git worktree list","category":"advanced-git"},{"command":"jules git worktree add","description":"Create a new worktree.","usage":"git worktree add <path> <branch>","category":"advanced-git"},{"command":"jules git bundle","description":"Move objects and references by archive.","usage":"git bundle create <file> <git-rev-list-args>","category":"advanced-git"},{"command":"jules git archive","description":"Create an archive of files from a named tree.","usage":"git archive --format=zip --output=archive.zip HEAD","category":"advanced-git"},{"command":"jules git tag","description":"List tags.","usage":"git tag","category":"git"},{"command":"jules git tag -a","description":"Create an annotated tag.","usage":"git tag -a v1.0 -m \"Version 1.0\"","category":"git"},{"command":"jules git tag -d","description":"Delete a tag.","usage":"git tag -d <tagname>","category":"git"},{"command":"jules git describe","description":"Give an object a human readable name based on an available ref.","usage":"git describe","category":"git"},{"command":"jules git grep","description":"Print lines matching a pattern.","usage":"git grep <pattern>","category":"git"},{"command":"jules version","description":"Display the installed version of the Jules CLI.","category":"misc","actionId":"version"},{"command":"jules help","description":"Show help information for the CLI.","category":"misc","actionId":"help"},{"command":"jules update","description":"Update the Jules CLI to the latest version.","category":"misc"}];
+        const commandsView = document.getElementById('commands-view');
+
+        function renderCommands() {
+            commandsView.innerHTML = '';
+            commands.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'cmd-card';
+                let actionHtml = '';
+                if (c.actionId) {
+                    actionHtml += `<button class="cmd-btn">Run</button>`;
+                }
+                actionHtml += `<button class="cmd-btn">Copy</button>`;
+
+                div.innerHTML = `
+                    <div class="cmd-header">
+                        <span class="cmd-name">${c.command}</span>
+                        <div class="cmd-actions">${actionHtml}</div>
+                    </div>
+                    <div class="cmd-desc">${c.description}</div>
+                    ${c.usage ? `<div class="cmd-usage">${c.usage}</div>` : ''}
+                `;
+                commandsView.appendChild(div);
+            });
+        }
+        renderCommands();
     </script>
-
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                :root {
-                    --bg: var(--vscode-editor-background);
-                    --text: var(--vscode-editor-foreground);
-                    --user-bg: var(--vscode-button-background);
-                    --user-text: var(--vscode-button-foreground);
-                    --jules-bg: var(--vscode-editor-inactiveSelectionBackground);
-                    --input-bg: var(--vscode-input-background);
-                    --border: var(--vscode-widget-border);
-                }
-                body { font-family: var(--vscode-font-family); padding: 0; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; }
-
-                /* VIEWS */
-                .view { display: none; flex-direction: column; height: 100%; }
-                .view.active { display: flex; }
-
-                /* TABS */
-                .tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--jules-bg); }
-                .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-bottom: 2px solid transparent; font-size: 12px; font-weight: 600; opacity: 0.7; }
-                .tab.active { border-bottom-color: var(--user-bg); opacity: 1; }
-                .tab:hover { opacity: 1; }
-
-                /* COMMANDS LIST VIEW */
-                #commands-view { padding: 10px; overflow-y: auto; }
-                .cmd-card { background: var(--jules-bg); border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid var(--border); }
-                .cmd-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-                .cmd-name { font-family: monospace; font-weight: bold; color: var(--vscode-textLink-foreground); }
-                .cmd-desc { font-size: 12px; color: var(--text); margin-bottom: 6px; }
-                .cmd-usage { font-family: monospace; font-size: 10px; background: var(--input-bg); padding: 4px; border-radius: 4px; color: var(--vscode-descriptionForeground); word-break: break-all; }
-                .cmd-actions { display: flex; gap: 8px; margin-top: 8px; }
-                .cmd-btn { padding: 2px 8px; font-size: 11px; cursor: pointer; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; border-radius: 2px; }
-                /* CLI COMMAND CENTER */
-                .cli-toolbox { background: var(--jules-bg); padding: 8px; border-bottom: 1px solid var(--border); display: none; }
-                .cli-toolbox.visible { display: block; }
-                .cli-toolbox h3 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: var(--vscode-descriptionForeground); }
-
-                .toolbox-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-                .tool-btn {
-                    background: var(--vscode-button-secondaryBackground);
-                    color: var(--vscode-button-secondaryForeground);
-                    border: 1px solid var(--border);
-                    padding: 4px;
-                    border-radius: 3px;
-                    cursor: pointer;
-                    font-size: 11px;
-                    text-align: center;
-                }
-                .tool-btn:hover { background: var(--vscode-list-hoverBackground); }
-                .tool-section { margin-bottom: 8px; }
-                .tool-section:last-child { margin-bottom: 0; }
-
-                /* SESSION LIST */
-                #session-list-view { padding: 10px; overflow-y: auto; }
-                .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-                .session-header h2 { margin: 0; font-size: 14px; text-transform: uppercase; color: var(--vscode-descriptionForeground); }
-                .btn-new { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-
-                .session-item { padding: 10px; border: 1px solid var(--border); margin-bottom: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
-                .session-item:hover { background: var(--vscode-list-hoverBackground); }
-                .session-title { font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px; }
-                .session-preview { font-size: 11px; color: var(--vscode-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-                /* CHAT VIEW */
-                .chat-header { padding: 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: var(--bg); }
-                .btn-back { background: transparent; border: none; color: var(--vscode-textLink-foreground); cursor: pointer; font-size: 16px; font-weight: bold; }
-                #active-session-title { font-weight: 600; font-size: 13px; }
-
-                .chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-                .message { padding: 10px 14px; border-radius: 8px; max-width: 90%; word-wrap: break-word; line-height: 1.5; font-size: 13px; }
-                .user { align-self: flex-end; background: var(--user-bg); color: var(--user-text); }
-                .jules { align-self: flex-start; background: var(--jules-bg); border: 1px solid var(--border); white-space: pre-wrap; font-family: monospace; }
-                .system { align-self: center; font-style: italic; color: var(--vscode-descriptionForeground); font-size: 12px; text-align: center; margin: 10px 0; }
-                .msg-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-                .msg-btn { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-
-                .skills-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 10px; border-bottom: 1px solid var(--border); }
-                .skill-card { background: var(--jules-bg); padding: 6px; border-radius: 4px; cursor: pointer; text-align: center; font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-                .skill-card:hover { background: var(--vscode-list-hoverBackground); }
-                .skill-icon { font-size: 16px; margin-bottom: 2px; }
-
-                .controls { padding: 10px; border-top: 1px solid var(--border); }
-                .quick-actions { display: flex; gap: 8px; margin-bottom: 8px; justify-content: flex-end; flex-wrap: wrap; }
-                .chip { font-size: 11px; color: var(--vscode-textLink-foreground); cursor: pointer; text-decoration: none; }
-                .chip:hover { text-decoration: underline; }
-                .auth-chip { display: inline-flex; align-items: center; gap: 6px; }
-                .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--vscode-descriptionForeground); opacity: 0.8; }
-                .auth-chip.connected .status-dot { background: var(--vscode-terminal-ansiGreen, #2da44e); opacity: 1; }
-                .auth-chip.missing .status-dot { background: var(--vscode-terminal-ansiRed, #d73a49); opacity: 1; }
-                .auth-chip.unknown .status-dot { background: var(--vscode-terminal-ansiYellow, #f7b731); opacity: 1; }
-                #input-box { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid var(--vscode-input-border); color: var(--text); outline: none; border-radius: 2px; }
-
-                .loader { display: none; margin: 0 auto 10px; font-size: 11px; color: var(--vscode-descriptionForeground); }
-                .loader.active { display: block; }
-            </style>
-        </head>
-        <body>
-            <!-- TAB BAR (Only shown when not in chat) -->
-            <div id="tab-bar" class="tab-bar">
-                <div class="tab active" onclick="switchTab('sessions')">TASKS</div>
-                <div id="tab-commands" class="tab" onclick="switchTab('commands')">CLI COMMANDS</div>
-            </div>
-
-            <!-- SESSION LIST VIEW -->
-            <div id="session-list-view" class="view active">
-
-                <!-- CLI COMMAND CENTER -->
-                <div id="cli-toolbox" class="cli-toolbox">
-                    <details open>
-                    <summary><strong>Jules CLI Tools</strong></summary>
-                    <div style="margin-top: 8px;">
-                        <div class="tool-section">
-                            <h3>Session Management</h3>
-                            <div class="toolbox-grid">
-                                <div class="tool-btn" onclick="sendCmd('remote-list-session')">List Sessions</div>
-                                <div class="tool-btn" onclick="createNewSession()">New Session</div>
-                                <div class="tool-btn" onclick="sendCmd('remote-pull')">Pull Session</div>
-                                <div class="tool-btn" onclick="sendCmd('remote-list-repo')">List Repos</div>
-                            </div>
-                        </div>
-                        <div class="tool-section">
-                            <h3>Authentication</h3>
-                            <div class="toolbox-grid">
-                                <div class="tool-btn" onclick="sendCmd('login')">Login</div>
-                                <div class="tool-btn" onclick="sendCmd('logout')">Logout</div>
-                            </div>
-                        </div>
-                         <div class="tool-section">
-                            <h3>System</h3>
-                            <div class="toolbox-grid">
-                                <div class="tool-btn" onclick="sendCmd('version')">Check Version</div>
-                                <div class="tool-btn" onclick="sendCmd('help')">Show Help</div>
-                            </div>
-                        </div>
-                    </div>
-                    </details>
-                </div>
-
-                <div class="session-header">
-                    <h2>My Tasks</h2>
-                    <button class="btn-new" onclick="createNewSession()">+ New Task</button>
-                </div>
-                <div id="session-list"></div>
-            </div>
-
-            <!-- COMMANDS VIEW -->
-            <div id="commands-view" class="view">
-                <!-- Commands injected here -->
-            </div>
-
-            <!-- CHAT VIEW -->
-            <div id="chat-view" class="view">
-                <div class="chat-header">
-                    <button class="btn-back" onclick="backToList()">‹</button>
-                    <span id="active-session-title">New Task</span>
-                </div>
-
-                <div class="skills-grid">
-                    <div class="skill-card" onclick="sendSkill('codegen')"><span class="skill-icon">✨</span>Forge</div>
-                    <div class="skill-card" onclick="sendSkill('performance')"><span class="skill-icon">⚡</span>Bolt</div>
-                    <div class="skill-card" onclick="sendSkill('design')"><span class="skill-icon">🎨</span>Palette</div>
-                    <div class="skill-card" onclick="sendSkill('security')"><span class="skill-icon">🛡️</span>Sentinel</div>
-                    <div class="skill-card" onclick="sendSkill('test')"><span class="skill-icon">🧪</span>Probe</div>
-                    <div class="skill-card" onclick="sendSkill('debug')"><span class="skill-icon">🧯</span>Tracer</div>
-                    <div class="skill-card" onclick="sendSkill('refactor')"><span class="skill-icon">♻️</span>Refine</div>
-                    <div class="skill-card" onclick="sendSkill('review')"><span class="skill-icon">👀</span>Lens</div>
-                    <div class="skill-card" onclick="sendSkill('git')"><span class="skill-icon">📂</span>Git Ops</div>
-                </div>
-
-                <div class="chat-container" id="chat"></div>
-                <div class="loader" id="loader">⚡ Jules is working...</div>
-
-                <div class="controls">
-                    <div class="quick-actions">
-                        <div class="chip" onclick="sendCmd('status')">Status</div>
-                        <div class="chip auth-chip" id="auth-chip" onclick="sendCmd('login')">
-                            <span class="status-dot"></span>
-                            <span id="auth-label">Sign In</span>
-                        </div>
-                        <div class="chip" id="signout-chip" onclick="sendCmd('logout')" style="display: none;">Sign Out</div>
-                        <div class="chip" onclick="sendCmd('help')">Help</div>
-                    </div>
-                    <input type="text" id="input-box" placeholder="Ask Jules..." />
-                </div>
-            </div>
-
-            <script>
-                const vscode = acquireVsCodeApi();
-                const sessionListEl = document.getElementById('session-list');
-                const sessionView = document.getElementById('session-list-view');
-                const chatView = document.getElementById('chat-view');
-                const commandsView = document.getElementById('commands-view');
-                const tabBar = document.getElementById('tab-bar');
-                const chatContainer = document.getElementById('chat');
-                const sessionTitleEl = document.getElementById('active-session-title');
-                const inp = document.getElementById('input-box');
-                const loader = document.getElementById('loader');
-                const authChip = document.getElementById('auth-chip');
-                const authLabel = document.getElementById('auth-label');
-                const signOutChip = document.getElementById('signout-chip');
-                const cliToolbox = document.getElementById('cli-toolbox');
-
-                const commands = [{"command":"jules login","description":"Authenticate the CLI with your Google account. Opens a browser window for OAuth flow.","category":"auth","actionId":"login"},{"command":"jules logout","description":"Sign out and remove local credentials from the machine.","category":"auth","actionId":"logout"},{"command":"jules auth check","description":"Verify current authentication status.","category":"auth","actionId":"status"},{"command":"Configure API Key","description":"Manually enter your Jules API Key for direct API mode.","category":"auth","actionId":"jules.setApiKey"},{"command":"jules remote new","description":"Start a new chat session with the agent for a specific repository.","usage":"jules remote new --repo <owner/repo> --session \"Your prompt\"","category":"session"},{"command":"jules remote list","description":"List active sessions and their current status (e.g., RUNNING, PAUSED).","usage":"jules remote list --session","category":"session","actionId":"remote-list-session"},{"command":"jules remote show","description":"Show details of a specific session.","usage":"jules remote show <session-id>","category":"session"},{"command":"jules remote pull","description":"Download code changes (patches) from a remote session to your local working directory.","usage":"jules remote pull --session <session-id>","category":"session","actionId":"remote-pull"},{"command":"jules remote delete","description":"Delete a session permanently.","usage":"jules remote delete <session-id>","category":"session"},{"command":"jules remote logs","description":"Fetch logs/history for a specific session.","usage":"jules remote logs <session-id>","category":"session"},{"command":"jules remote list --repo","description":"List available repositories (sources) for the agent.","usage":"jules remote list --repo","category":"session","actionId":"remote-list-repo"},{"command":"jules config list","description":"List all current configuration settings.","usage":"jules config list","category":"config"},{"command":"jules config get","description":"Get the value of a configuration key.","usage":"jules config get <key>","category":"config"},{"command":"jules config set","description":"Set a configuration value.","usage":"jules config set <key> <value>","category":"config"},{"command":"jules git init","description":"Create an empty Git repository or reinitialize an existing one.","usage":"git init","category":"git"},{"command":"jules git status","description":"Show the working tree status.","usage":"git status","category":"git"},{"command":"jules git add","description":"Add file contents to the index (stage files).","usage":"git add <pathspec>","category":"git"},{"command":"jules git add .","description":"Add all changed files in the current directory to the index.","usage":"git add .","category":"git"},{"command":"jules git commit","description":"Record changes to the repository with a message.","usage":"git commit -m \"message\"","category":"git"},{"command":"jules git diff","description":"Show changes between commits, commit and working tree, etc.","usage":"git diff","category":"git"},{"command":"jules git diff --staged","description":"Show changes that are staged for the next commit.","usage":"git diff --staged","category":"git"},{"command":"jules git branch","description":"List local branches.","usage":"git branch","category":"git"},{"command":"jules git branch -a","description":"List all branches (local and remote).","usage":"git branch -a","category":"git"},{"command":"jules git checkout","description":"Switch branches or restore working tree files.","usage":"git checkout <branch>","category":"git"},{"command":"jules git checkout -b","description":"Create a new branch and switch to it immediately.","usage":"git checkout -b <new-branch>","category":"git"},{"command":"jules git merge","description":"Join two or more development histories together.","usage":"git merge <branch>","category":"git"},{"command":"jules git merge --abort","description":"Abort the current conflict resolution process, and try to reconstruct the pre-merge state.","usage":"git merge --abort","category":"git"},{"command":"jules git rebase","description":"Reapply commits on top of another base tip.","usage":"git rebase <upstream>","category":"git"},{"command":"jules git rebase -i","description":"Interactive rebase to edit, squash, or reorder commits.","usage":"git rebase -i <commit>","category":"git"},{"command":"jules git log","description":"Show commit logs.","usage":"git log --oneline --graph --all","category":"git"},{"command":"jules git log -p","description":"Show changes over time (patches) for each commit.","usage":"git log -p <file>","category":"git"},{"command":"jules git reflog","description":"Manage reflog information (show local history of HEAD).","usage":"git reflog","category":"advanced-git"},{"command":"jules git blame","description":"Show what revision and author last modified each line of a file.","usage":"git blame <file>","category":"git"},{"command":"jules git show","description":"Show various types of objects (commits, tags, trees).","usage":"git show <object>","category":"git"},{"command":"jules git shortlog","description":"Summarize git log output.","usage":"git shortlog -sn","category":"git"},{"command":"jules git remote -v","description":"List remote repositories with URLs.","usage":"git remote -v","category":"git"},{"command":"jules git remote add","description":"Add a new remote repository.","usage":"git remote add <name> <url>","category":"git"},{"command":"jules git fetch","description":"Download objects and refs from another repository.","usage":"git fetch --all","category":"git"},{"command":"jules git pull","description":"Fetch from and integrate with another repository or a local branch.","usage":"git pull origin main","category":"git"},{"command":"jules git push","description":"Update remote refs along with associated objects.","usage":"git push origin main","category":"git"},{"command":"jules git push -u","description":"Push and set upstream.","usage":"git push -u origin <branch>","category":"git"},{"command":"jules git push --force","description":"Force update remote refs (use with caution).","usage":"git push --force","category":"advanced-git"},{"command":"jules git reset","description":"Reset current HEAD to the specified state (unstage files).","usage":"git reset <file>","category":"git"},{"command":"jules git reset --soft","description":"Reset HEAD but keep changes in index (staged).","usage":"git reset --soft <commit>","category":"git"},{"command":"jules git reset --hard","description":"Reset current HEAD, index and working tree to specified state (DANGEROUS).","usage":"git reset --hard <commit>","category":"git"},{"command":"jules git revert","description":"Create a new commit that undoes the changes of a previous commit.","usage":"git revert <commit>","category":"git"},{"command":"jules git restore","description":"Restore working tree files.","usage":"git restore <file>","category":"git"},{"command":"jules git restore --staged","description":"Unstage files.","usage":"git restore --staged <file>","category":"git"},{"command":"jules git clean","description":"Remove untracked files from the working tree.","usage":"git clean -fd","category":"git"},{"command":"jules git stash","description":"Stash the changes in a dirty working directory away.","usage":"git stash","category":"git"},{"command":"jules git stash pop","description":"Apply the changes from the stash and remove them from the stash list.","usage":"git stash pop","category":"git"},{"command":"jules git stash list","description":"List the stash entries that you currently have.","usage":"git stash list","category":"git"},{"command":"jules git cherry-pick","description":"Apply the changes introduced by some existing commits.","usage":"git cherry-pick <commit>","category":"git"},{"command":"jules git bisect start","description":"Start binary search to find the commit that introduced a bug.","usage":"git bisect start","category":"advanced-git"},{"command":"jules git worktree list","description":"List details of each worktree.","usage":"git worktree list","category":"advanced-git"},{"command":"jules git submodule update","description":"Update the registered submodules.","usage":"git submodule update --init --recursive","category":"advanced-git"},{"command":"jules git archive","description":"Create an archive of files from a named tree.","usage":"git archive --format=zip --output=archive.zip HEAD","category":"advanced-git"},{"command":"jules git bundle","description":"Move objects and references by archive.","usage":"git bundle create <file> <git-rev-list-args>","category":"advanced-git"},{"command":"jules git gc","description":"Cleanup unnecessary files and optimize the local repository.","usage":"git gc","category":"advanced-git"},{"command":"jules git rev-parse","description":"Pick out and massage parameters.","usage":"git rev-parse --show-toplevel","category":"advanced-git"},{"command":"jules git tag","description":"Create, list, delete or verify a tag object.","usage":"git tag -a v1.0 -m \"Version 1.0\"","category":"git"},{"command":"jules git describe","description":"Give an object a human readable name based on an available ref.","usage":"git describe","category":"git"},{"command":"jules git grep","description":"Print lines matching a pattern.","usage":"git grep <pattern>","category":"git"},{"command":"jules git apply","description":"Apply a patch to files and/or to the index.","usage":"git apply <patch-file>","category":"advanced-git"},{"command":"jules git format-patch","description":"Prepare patches for e-mail submission.","usage":"git format-patch HEAD~1","category":"advanced-git"},{"command":"jules version","description":"Display the installed version of the Jules CLI.","category":"misc","actionId":"version"},{"command":"jules help","description":"Show help information for the CLI.","category":"misc","actionId":"help"},{"command":"jules update","description":"Update the Jules CLI to the latest version.","category":"misc"}];
-                let currentSessionId = null;
-
-                // --- INITIALIZATION ---
-                renderCommands();
-
-                // --- NAVIGATION ---
-                function switchTab(tab) {
-                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                    document.querySelector(\`.tab[onclick="switchTab('\${tab}')"]\`).classList.add('active');
-
-                    if (tab === 'sessions') {
-                        sessionView.classList.add('active');
-                        commandsView.classList.remove('active');
-                    } else {
-                        sessionView.classList.remove('active');
-                        commandsView.classList.add('active');
-                    }
-                }
-
-                function renderCommands() {
-                    commandsView.innerHTML = '';
-                    commands.forEach(c => {
-                        const div = document.createElement('div');
-                        div.className = 'cmd-card';
-                        let actionHtml = '';
-                        if (c.actionId) {
-                            actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\
+</body>
+</html>
