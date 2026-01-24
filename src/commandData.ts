@@ -352,6 +352,68 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
 
+    // --- ADVANCED GIT ---
+    {
+        command: 'jules git remote -v',
+        description: 'List all remotes with their URLs.',
+        usage: 'git remote -v',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote set-url',
+        description: 'Change the URL of a remote.',
+        usage: 'git remote set-url <name> <newurl>',
+        category: 'git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash',
+        description: 'Stash the changes in a dirty working directory away.',
+        usage: 'git stash',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash list',
+        description: 'List the stash entries.',
+        usage: 'git stash list',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash apply',
+        description: 'Apply the changes recorded in the stash to the working tree.',
+        usage: 'git stash apply',
+        category: 'git'
+    },
+    {
+        command: 'jules git reset --soft',
+        description: 'Reset current HEAD to the specified state, keeping index and working tree.',
+        usage: 'git reset --soft <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git reset --hard',
+        description: 'Reset current HEAD, index and working tree to the specified state.',
+        usage: 'git reset --hard <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git config --list',
+        description: 'List all variables set in config file.',
+        usage: 'git config --global --list',
+        category: 'git'
+    },
+
     // --- MISC ---
     {
         command: 'jules git describe',
