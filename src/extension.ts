@@ -367,8 +367,14 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    // Optimization: Cache the command list JSON to avoid repeated stringification
+    private static _cachedCommandList: string | undefined;
+
     private _getHtmlForWebview(webview: vscode.Webview) {
-        const cmdList = JSON.stringify(CLI_COMMANDS);
+        if (!JulesChatProvider._cachedCommandList) {
+            JulesChatProvider._cachedCommandList = JSON.stringify(CLI_COMMANDS);
+        }
+        const cmdList = JulesChatProvider._cachedCommandList;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>

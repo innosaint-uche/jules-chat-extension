@@ -278,12 +278,6 @@ export const CLI_COMMANDS: CommandDefinition[] = [
 
     // --- REMOTE OPS ---
     {
-        command: 'jules git reflog',
-        description: 'Manage reflog information.',
-        usage: 'git reflog',
-        category: 'git'
-    },
-    {
         command: 'jules git remote add',
         description: 'Add a new remote repository.',
         usage: 'git remote add <name> <url>',
@@ -349,6 +343,52 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         command: 'jules git revert',
         description: 'Create a new commit that undoes the changes of a previous commit.',
         usage: 'git revert <commit>',
+        category: 'git'
+    },
+
+    // --- FILE OPERATIONS ---
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'git'
+    },
+    {
+        command: 'jules git mv',
+        description: 'Move or rename a file, directory, or symlink.',
+        usage: 'git mv <source> <destination>',
+        category: 'git'
+    },
+    {
+        command: 'jules git rm',
+        description: 'Remove files from the working tree and from the index.',
+        usage: 'git rm <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git restore',
+        description: 'Restore working tree files.',
+        usage: 'git restore <file>',
+        category: 'git'
+    },
+
+    // --- ADVANCED GIT ---
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git bisect',
+        description: 'Use binary search to find the commit that introduced a bug.',
+        usage: 'git bisect start',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git diff --stat',
+        description: 'Show a summary of changes (stat) instead of full diff.',
+        usage: 'git diff --stat',
         category: 'git'
     },
 
