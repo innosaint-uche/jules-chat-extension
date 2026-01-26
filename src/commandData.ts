@@ -173,6 +173,18 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git diff --staged',
         category: 'git'
     },
+    {
+        command: 'jules git diff --cached',
+        description: 'Synonym for --staged.',
+        usage: 'git diff --cached',
+        category: 'git'
+    },
+    {
+        command: 'jules git diff --stat',
+        description: 'Show a histogram of changes.',
+        usage: 'git diff --stat',
+        category: 'git'
+    },
 
     // --- BRANCHING & MERGING ---
     {
@@ -194,6 +206,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
+        command: 'jules git branch -D',
+        description: 'Force delete a branch.',
+        usage: 'git branch -D <branch>',
+        category: 'git'
+    },
+    {
         command: 'jules git checkout',
         description: 'Switch branches or restore working tree files.',
         usage: 'git checkout <branch>',
@@ -212,6 +230,12 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
+        command: 'jules git switch -c',
+        description: 'Create and switch to a new branch.',
+        usage: 'git switch -c <branch>',
+        category: 'git'
+    },
+    {
         command: 'jules git merge',
         description: 'Join two or more development histories together.',
         usage: 'git merge <branch>',
@@ -219,7 +243,7 @@ export const CLI_COMMANDS: CommandDefinition[] = [
     },
     {
         command: 'jules git merge --abort',
-        description: 'Abort the current conflict resolution process, and try to reconstruct the pre-merge state.',
+        description: 'Abort the current conflict resolution process.',
         usage: 'git merge --abort',
         category: 'git'
     },
@@ -229,12 +253,16 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git rebase <upstream>',
         category: 'git'
     },
-
-    // --- GIT INTEGRATION: LOGS & HISTORY ---
     {
-        command: 'jules git rebase -i',
-        description: 'Interactive rebase to edit, squash, or reorder commits.',
-        usage: 'git rebase -i <commit>',
+        command: 'jules git rebase --continue',
+        description: 'Continue the rebase process after resolving conflicts.',
+        usage: 'git rebase --continue',
+        category: 'git'
+    },
+    {
+        command: 'jules git rebase --abort',
+        description: 'Abort the rebase operation.',
+        usage: 'git rebase --abort',
         category: 'git'
     },
 
@@ -249,6 +277,18 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         command: 'jules git log -p',
         description: 'Show changes over time (patches) for each commit.',
         usage: 'git log -p <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git log --oneline',
+        description: 'Show commit logs in a single line format.',
+        usage: 'git log --oneline',
+        category: 'git'
+    },
+    {
+        command: 'jules git log --author',
+        description: 'Limit commits to those by a specific author.',
+        usage: 'git log --author="<pattern>"',
         category: 'git'
     },
     {
@@ -278,15 +318,33 @@ export const CLI_COMMANDS: CommandDefinition[] = [
 
     // --- REMOTE OPS ---
     {
-        command: 'jules git reflog',
-        description: 'Manage reflog information.',
-        usage: 'git reflog',
+        command: 'jules git remote -v',
+        description: 'List remote repositories.',
+        usage: 'git remote -v',
         category: 'git'
     },
     {
         command: 'jules git remote add',
         description: 'Add a new remote repository.',
         usage: 'git remote add <name> <url>',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote rename',
+        description: 'Rename a remote repository.',
+        usage: 'git remote rename <old> <new>',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote remove',
+        description: 'Remove a remote repository.',
+        usage: 'git remote remove <name>',
+        category: 'git'
+    },
+    {
+        command: 'jules git remote set-url',
+        description: 'Change the URL of a remote repository.',
+        usage: 'git remote set-url <name> <newurl>',
         category: 'git'
     },
     {
@@ -320,7 +378,7 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'advanced-git'
     },
 
-    // --- UNDOING CHANGES ---
+    // --- UNDOING CHANGES & STASHING ---
     {
         command: 'jules git reset',
         description: 'Reset current HEAD to the specified state (unstage files).',
@@ -328,15 +386,57 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git tag',
-        description: 'Create, list, delete or verify a tag object signed with GPG.',
-        usage: 'git tag',
+        command: 'jules git reset --soft',
+        description: 'Reset HEAD only, keeping changes in index and working tree.',
+        usage: 'git reset --soft <commit>',
         category: 'git'
     },
     {
-        command: 'jules git blame',
-        description: 'Show what revision and author last modified each line of a file.',
-        usage: 'git blame <file>',
+        command: 'jules git reset --hard',
+        description: 'Reset HEAD, index, and working tree (discarding changes).',
+        usage: 'git reset --hard <commit>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git restore',
+        description: 'Restore working tree files.',
+        usage: 'git restore <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git restore --staged',
+        description: 'Restore files in the index (unstage).',
+        usage: 'git restore --staged <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git revert',
+        description: 'Create a new commit that undoes the changes of a previous commit.',
+        usage: 'git revert <commit>',
+        category: 'git'
+    },
+    {
+        command: 'jules git clean -n',
+        description: 'Show what files would be removed from the working directory.',
+        usage: 'git clean -n',
+        category: 'git'
+    },
+    {
+        command: 'jules git clean -fd',
+        description: 'Remove untracked files and directories.',
+        usage: 'git clean -fd',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git stash',
+        description: 'Stash the changes in a dirty working directory.',
+        usage: 'git stash',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash list',
+        description: 'List the stash entries.',
+        usage: 'git stash list',
         category: 'git'
     },
     {
@@ -346,9 +446,83 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git revert',
-        description: 'Create a new commit that undoes the changes of a previous commit.',
-        usage: 'git revert <commit>',
+        command: 'jules git stash apply',
+        description: 'Apply the changes from the stash but keep them in the stash list.',
+        usage: 'git stash apply',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash drop',
+        description: 'Remove a single stash entry.',
+        usage: 'git stash drop',
+        category: 'git'
+    },
+    {
+        command: 'jules git stash clear',
+        description: 'Remove all stash entries.',
+        usage: 'git stash clear',
+        category: 'advanced-git'
+    },
+
+    // --- ADVANCED GIT (Bisect, Cherry-Pick, etc.) ---
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git cherry-pick --abort',
+        description: 'Abort the current cherry-pick sequence.',
+        usage: 'git cherry-pick --abort',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git bisect start',
+        description: 'Start binary search for a bad commit.',
+        usage: 'git bisect start',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git bisect bad',
+        description: 'Mark the current commit as bad.',
+        usage: 'git bisect bad',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git bisect good',
+        description: 'Mark the current commit (or specified one) as good.',
+        usage: 'git bisect good <commit>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git bisect reset',
+        description: 'Finish bisecting and return to original branch.',
+        usage: 'git bisect reset',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git submodule add',
+        description: 'Add a new submodule.',
+        usage: 'git submodule add <repository> <path>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git submodule update --init --recursive',
+        description: 'Initialize and update submodules recursively.',
+        usage: 'git submodule update --init --recursive',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git tag',
+        description: 'Create, list, delete or verify a tag object.',
+        usage: 'git tag',
+        category: 'git'
+    },
+    {
+        command: 'jules git tag -a',
+        description: 'Create an annotated tag.',
+        usage: 'git tag -a <tagname> -m "message"',
         category: 'git'
     },
 
