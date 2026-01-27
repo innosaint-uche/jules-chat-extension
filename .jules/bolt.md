@@ -9,3 +9,8 @@
 ## 2025-01-28 - ApiBackend Cache & Polling Fixes
 **Learning:** The previous implementation of `ApiBackend` had missing property definitions for caches (`_repoSlugCache`, `_sourceNameCache`) and polling state (`_processedActivitySets`), causing runtime errors or preventing optimizations from working. Also, `_pollActivities` used an O(N) array check instead of O(1) Set lookup.
 **Action:** Fixed the class definitions, repaired the caching logic for git remote resolution, and implemented a proper Set-based deduplication for activity polling.
+
+## 2025-01-29 - Webview Rendering & CLI Command Expansion
+**Learning:** The Webview HTML generation logic unnecessarily re-serialized the `CLI_COMMANDS` array (which I significantly expanded) on every render. This adds main-thread blocking overhead every time the view is refreshed or collapsed/expanded.
+**Action:** Implemented a static cache (`_cachedCommandList`) for the JSON string. It is computed once and reused.
+**Fix:** Also identified and removed duplicate property declarations in `ApiBackend` that were causing compilation errors.
