@@ -48,6 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 class JulesChatProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'jules.chatView';
+    private static _cachedCommandList: string | undefined;
     private _view?: vscode.WebviewView;
     private _backend: JulesBackend;
     
@@ -72,8 +73,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
     private _createBackend(): JulesBackend {
         const mode = vscode.workspace.getConfiguration('jules').get<string>('mode');
-        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession) => {
-            this._appendMessageToSession(session.id, sender, text);
+        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession, buttons?: { label: string, cmd: string }[]) => {
+            this._appendMessageToSession(session.id, sender, text, buttons);
         };
         const statusHandler = (status: JulesAuthStatus) => {
             this._setAuthStatus(status);
@@ -368,7 +369,10 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        const cmdList = JSON.stringify(CLI_COMMANDS);
+        if (!JulesChatProvider._cachedCommandList) {
+            JulesChatProvider._cachedCommandList = JSON.stringify(CLI_COMMANDS);
+        }
+        const cmdList = JulesChatProvider._cachedCommandList;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
