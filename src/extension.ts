@@ -595,27 +595,25 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     }
                 }
 
+                // ⚡ Bolt: Optimized rendering to use single innerHTML assignment
+                // This prevents layout thrashing from repeated appendChild calls
                 function renderCommands() {
-                    commandsView.innerHTML = '';
-                    commands.forEach(c => {
-                        const div = document.createElement('div');
-                        div.className = 'cmd-card';
+                    commandsView.innerHTML = commands.map(c => {
                         let actionHtml = '';
                         if (c.actionId) {
                             actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
                         }
                         actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
 
-                        div.innerHTML = \`
+                        return \`<div class="cmd-card">
                             <div class="cmd-header">
                                 <span class="cmd-name">\${c.command}</span>
                                 <div class="cmd-actions">\${actionHtml}</div>
                             </div>
                             <div class="cmd-desc">\${c.description}</div>
                             \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
-                        \`;
-                        commandsView.appendChild(div);
-                    });
+                        </div>\`;
+                    }).join('');
                 }
 
                 function copyToClipboard(text) {
