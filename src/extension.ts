@@ -72,8 +72,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
     private _createBackend(): JulesBackend {
         const mode = vscode.workspace.getConfiguration('jules').get<string>('mode');
-        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession) => {
-            this._appendMessageToSession(session.id, sender, text);
+        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession, buttons?: { label: string, cmd: string }[]) => {
+            this._appendMessageToSession(session.id, sender, text, buttons);
         };
         const statusHandler = (status: JulesAuthStatus) => {
             this._setAuthStatus(status);
@@ -596,26 +596,23 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 }
 
                 function renderCommands() {
-                    commandsView.innerHTML = '';
-                    commands.forEach(c => {
-                        const div = document.createElement('div');
-                        div.className = 'cmd-card';
+                    // Bolt Optimization: Use map().join('') to build HTML string and assign once
+                    commandsView.innerHTML = commands.map(c => {
                         let actionHtml = '';
                         if (c.actionId) {
                             actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
                         }
                         actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
 
-                        div.innerHTML = \`
+                        return \`<div class="cmd-card">
                             <div class="cmd-header">
                                 <span class="cmd-name">\${c.command}</span>
                                 <div class="cmd-actions">\${actionHtml}</div>
                             </div>
                             <div class="cmd-desc">\${c.description}</div>
                             \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
-                        \`;
-                        commandsView.appendChild(div);
-                    });
+                        </div>\`;
+                    }).join('');
                 }
 
                 function copyToClipboard(text) {

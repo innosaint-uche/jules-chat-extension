@@ -9,3 +9,7 @@
 ## 2025-01-28 - ApiBackend Cache & Polling Fixes
 **Learning:** The previous implementation of `ApiBackend` had missing property definitions for caches (`_repoSlugCache`, `_sourceNameCache`) and polling state (`_processedActivitySets`), causing runtime errors or preventing optimizations from working. Also, `_pollActivities` used an O(N) array check instead of O(1) Set lookup.
 **Action:** Fixed the class definitions, repaired the caching logic for git remote resolution, and implemented a proper Set-based deduplication for activity polling.
+
+## 2024-05-27 - Webview Layout Thrashing
+**Learning:** Rendering a large list of commands using `forEach` and `appendChild` caused unnecessary layout thrashing.
+**Action:** Refactored to build a single HTML string using `map().join('')` and assigning to `innerHTML` once. This scales O(1) for DOM updates regardless of list size.
