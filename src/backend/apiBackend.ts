@@ -16,16 +16,6 @@ export class ApiBackend implements JulesBackend {
     private _repoSlugCache = new Map<string, string | null>();
     private _processedActivitySets = new Map<string, Set<string>>();
 
-    // Caches
-    private _repoSlugCache = new Map<string, string | null>();
-    private _sourceNameCache = new Map<string, string | null>();
-    private _processedActivitySets = new Map<string, Set<string>>();
-
-    // Caches
-    private _sourceNameCache = new Map<string, string>();
-    private _repoSlugCache = new Map<string, string | null>();
-    private _processedActivitySets = new Map<string, Set<string>>();
-
     constructor(
         private readonly _context: vscode.ExtensionContext,
         private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession) => void,

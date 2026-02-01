@@ -9,3 +9,7 @@
 ## 2025-01-28 - ApiBackend Cache & Polling Fixes
 **Learning:** The previous implementation of `ApiBackend` had missing property definitions for caches (`_repoSlugCache`, `_sourceNameCache`) and polling state (`_processedActivitySets`), causing runtime errors or preventing optimizations from working. Also, `_pollActivities` used an O(N) array check instead of O(1) Set lookup.
 **Action:** Fixed the class definitions, repaired the caching logic for git remote resolution, and implemented a proper Set-based deduplication for activity polling.
+
+## 2025-05-23 - Static Data Serialization Cache
+**Learning:** Injecting large static data structures (like a comprehensive CLI command list) into a Webview template string via `JSON.stringify` on every render is wasteful.
+**Action:** Implemented a static cache `_cachedCommandList` in `JulesChatProvider` to perform serialization only once. This eliminates O(N) serialization cost on subsequent view refreshes.
