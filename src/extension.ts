@@ -48,6 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 class JulesChatProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'jules.chatView';
+    private static _cachedCommandList: string | undefined;
     private _view?: vscode.WebviewView;
     private _backend: JulesBackend;
     
@@ -72,8 +73,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
     private _createBackend(): JulesBackend {
         const mode = vscode.workspace.getConfiguration('jules').get<string>('mode');
-        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession) => {
-            this._appendMessageToSession(session.id, sender, text);
+        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession, buttons?: { label: string, cmd: string }[]) => {
+            this._appendMessageToSession(session.id, sender, text, buttons);
         };
         const statusHandler = (status: JulesAuthStatus) => {
             this._setAuthStatus(status);
@@ -368,7 +369,10 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        const cmdList = JSON.stringify(CLI_COMMANDS);
+        if (!JulesChatProvider._cachedCommandList) {
+            JulesChatProvider._cachedCommandList = JSON.stringify(CLI_COMMANDS);
+        }
+        const cmdList = JulesChatProvider._cachedCommandList;
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -596,26 +600,25 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 }
 
                 function renderCommands() {
-                    commandsView.innerHTML = '';
-                    commands.forEach(c => {
-                        const div = document.createElement('div');
-                        div.className = 'cmd-card';
+                    // Optimized: Build HTML string once and assign to innerHTML to avoid layout thrashing
+                    const html = commands.map(c => {
                         let actionHtml = '';
                         if (c.actionId) {
                             actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
                         }
                         actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
 
-                        div.innerHTML = \`
+                        return \`
+                        <div class="cmd-card">
                             <div class="cmd-header">
                                 <span class="cmd-name">\${c.command}</span>
                                 <div class="cmd-actions">\${actionHtml}</div>
                             </div>
                             <div class="cmd-desc">\${c.description}</div>
                             \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
-                        \`;
-                        commandsView.appendChild(div);
-                    });
+                        </div>\`;
+                    }).join('');
+                    commandsView.innerHTML = html;
                 }
 
                 function copyToClipboard(text) {
