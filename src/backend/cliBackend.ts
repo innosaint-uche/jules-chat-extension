@@ -4,7 +4,7 @@ import { JulesBackend, JulesAuthStatus, ChatSession, ChatMessage } from './types
 
 export class CliBackend implements JulesBackend {
     constructor(
-        private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession) => void,
+        private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession, buttons?: { label: string, cmd: string }[]) => void,
         private readonly _onStatusChange: (status: JulesAuthStatus) => void
     ) {}
 
