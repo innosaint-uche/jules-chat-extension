@@ -596,26 +596,25 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 }
 
                 function renderCommands() {
-                    commandsView.innerHTML = '';
-                    commands.forEach(c => {
-                        const div = document.createElement('div');
-                        div.className = 'cmd-card';
+                    // Bolt: Optimized to prevent layout thrashing
+                    commandsView.innerHTML = commands.map(c => {
                         let actionHtml = '';
                         if (c.actionId) {
                             actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
                         }
                         actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
 
-                        div.innerHTML = \`
-                            <div class="cmd-header">
-                                <span class="cmd-name">\${c.command}</span>
-                                <div class="cmd-actions">\${actionHtml}</div>
+                        return \`
+                            <div class="cmd-card">
+                                <div class="cmd-header">
+                                    <span class="cmd-name">\${c.command}</span>
+                                    <div class="cmd-actions">\${actionHtml}</div>
+                                </div>
+                                <div class="cmd-desc">\${c.description}</div>
+                                \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
                             </div>
-                            <div class="cmd-desc">\${c.description}</div>
-                            \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
                         \`;
-                        commandsView.appendChild(div);
-                    });
+                    }).join('');
                 }
 
                 function copyToClipboard(text) {
