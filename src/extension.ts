@@ -72,8 +72,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
     private _createBackend(): JulesBackend {
         const mode = vscode.workspace.getConfiguration('jules').get<string>('mode');
-        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession) => {
-            this._appendMessageToSession(session.id, sender, text);
+        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession, buttons?: { label: string, cmd: string }[]) => {
+            this._appendMessageToSession(session.id, sender, text, buttons);
         };
         const statusHandler = (status: JulesAuthStatus) => {
             this._setAuthStatus(status);
