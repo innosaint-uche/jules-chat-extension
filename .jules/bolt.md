@@ -9,3 +9,7 @@
 ## 2025-01-28 - ApiBackend Cache & Polling Fixes
 **Learning:** The previous implementation of `ApiBackend` had missing property definitions for caches (`_repoSlugCache`, `_sourceNameCache`) and polling state (`_processedActivitySets`), causing runtime errors or preventing optimizations from working. Also, `_pollActivities` used an O(N) array check instead of O(1) Set lookup.
 **Action:** Fixed the class definitions, repaired the caching logic for git remote resolution, and implemented a proper Set-based deduplication for activity polling.
+
+## 2025-01-28 - Webview Render Optimization
+**Learning:** The `renderCommands` function was iterating through the command list and appending elements to the DOM one by one (`appendChild`). This causes "layout thrashing" (repeated reflows/paints). With the expanded command list, this would cause noticeable jank.
+**Action:** Refactored to build a single HTML string using `map().join('')` and assigning to `innerHTML` once. This is a classic Bolt optimization: reduces browser reflows to O(1).
