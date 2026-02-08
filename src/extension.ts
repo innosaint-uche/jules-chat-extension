@@ -600,18 +600,19 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     const html = commands.map(c => {
                         let actionHtml = '';
                         if (c.actionId) {
-                            actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
+                            actionHtml += \`<button class="cmd-btn" data-cmd="\${escapeHtml(c.actionId || '')}" onclick="sendCmd(this.dataset.cmd)">Run</button>\`;
                         }
-                        actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
+                        const copyText = c.usage || c.command || '';
+                        actionHtml += \`<button class="cmd-btn" data-copy="\${escapeHtml(copyText)}" onclick="copyToClipboard(this.dataset.copy)">Copy</button>\`;
 
                         return \`
                         <div class="cmd-card">
                             <div class="cmd-header">
-                                <span class="cmd-name">\${c.command}</span>
+                                <span class="cmd-name">\${escapeHtml(c.command || '')}</span>
                                 <div class="cmd-actions">\${actionHtml}</div>
                             </div>
-                            <div class="cmd-desc">\${c.description}</div>
-                            \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
+                            <div class="cmd-desc">\${escapeHtml(c.description || '')}</div>
+                            \${c.usage ? \`<div class="cmd-usage">\${escapeHtml(c.usage)}</div>\` : ''}
                         </div>\`;
                     }).join('');
                     commandsView.innerHTML = html;
