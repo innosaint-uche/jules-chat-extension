@@ -495,6 +495,55 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git grep <pattern>',
         category: 'git'
     },
+    // --- ADVANCED GIT OPS ---
+    {
+        command: 'jules git stash list',
+        description: 'List the stash entries that you currently have.',
+        usage: 'git stash list',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git stash save',
+        description: 'Save your local modifications to a new stash entry.',
+        usage: 'git stash save "message"',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git stash drop',
+        description: 'Remove a single stashed state from the stash list.',
+        usage: 'git stash drop <stash>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git restore',
+        description: 'Restore working tree files.',
+        usage: 'git restore <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git bisect',
+        description: 'Use binary search to find the commit that introduced a bug.',
+        usage: 'git bisect start',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git submodule',
+        description: 'Initialize, update or inspect submodules.',
+        usage: 'git submodule update --init --recursive',
+        category: 'advanced-git'
+    },
     {
         command: 'jules version',
         description: 'Display the installed version of the Jules CLI.',
