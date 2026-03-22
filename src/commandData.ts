@@ -209,7 +209,7 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         command: 'jules git branch -D',
         description: 'Force delete a branch.',
         usage: 'git branch -D <branch>',
-        category: 'git'
+        category: 'advanced-git'
     },
     {
         command: 'jules git checkout',
