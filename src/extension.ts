@@ -48,6 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 class JulesChatProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'jules.chatView';
+    private static _cachedCommandList: string | undefined; // Bolt: Cache for large command list
     private _view?: vscode.WebviewView;
     private _backend: JulesBackend;
     
@@ -368,7 +369,12 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        const cmdList = JSON.stringify(CLI_COMMANDS);
+        // Bolt Optimization: Cache the stringified commands to avoid repeated JSON serialization overhead
+        if (!JulesChatProvider._cachedCommandList) {
+            JulesChatProvider._cachedCommandList = JSON.stringify(CLI_COMMANDS);
+        }
+        const cmdList = JulesChatProvider._cachedCommandList;
+
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -596,26 +602,26 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 }
 
                 function renderCommands() {
-                    commandsView.innerHTML = '';
-                    commands.forEach(c => {
-                        const div = document.createElement('div');
-                        div.className = 'cmd-card';
+                    // ⚡ Bolt Optimization: Build HTML string once to avoid layout thrashing
+                    const html = commands.map(c => {
                         let actionHtml = '';
                         if (c.actionId) {
-                            actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
+                            actionHtml += \`<button class="cmd-btn" data-cmd="\${escapeHtml(c.actionId || '')}" onclick="sendCmd(this.dataset.cmd)">Run</button>\`;
                         }
-                        actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
+                        const copyText = c.usage || c.command || '';
+                        actionHtml += \`<button class="cmd-btn" data-copy="\${escapeHtml(copyText)}" onclick="copyToClipboard(this.dataset.copy)">Copy</button>\`;
 
-                        div.innerHTML = \`
+                        return \`
+                        <div class="cmd-card">
                             <div class="cmd-header">
-                                <span class="cmd-name">\${c.command}</span>
+                                <span class="cmd-name">\${escapeHtml(c.command || '')}</span>
                                 <div class="cmd-actions">\${actionHtml}</div>
                             </div>
-                            <div class="cmd-desc">\${c.description}</div>
-                            \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
-                        \`;
-                        commandsView.appendChild(div);
-                    });
+                            <div class="cmd-desc">\${escapeHtml(c.description || '')}</div>
+                            \${c.usage ? \`<div class="cmd-usage">\${escapeHtml(c.usage)}</div>\` : ''}
+                        </div>\`;
+                    }).join('');
+                    commandsView.innerHTML = html;
                 }
 
                 function copyToClipboard(text) {
