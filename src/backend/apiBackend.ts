@@ -18,7 +18,7 @@ export class ApiBackend implements JulesBackend {
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
-        private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession) => void,
+        private readonly _onOutput: (text: string, sender: 'jules' | 'system', session: ChatSession, buttons?: { label: string, cmd: string }[]) => void,
         private readonly _onStatusChange: (status: JulesAuthStatus) => void
     ) {}
 
@@ -56,7 +56,9 @@ export class ApiBackend implements JulesBackend {
 
     async sendMessage(session: ChatSession, message: string, cwd: string): Promise<void> {
         if (!this._apiKey) {
-            this._onOutput('❌ API Key missing. Please sign in.', 'system', session);
+            this._onOutput('❌ API Key missing. Please sign in to use Jules API mode.', 'system', session, [
+                { label: 'Set API Key', cmd: 'jules.setApiKey' }
+            ]);
             return;
         }
 

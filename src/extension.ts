@@ -73,8 +73,8 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
 
     private _createBackend(): JulesBackend {
         const mode = vscode.workspace.getConfiguration('jules').get<string>('mode');
-        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession) => {
-            this._appendMessageToSession(session.id, sender, text);
+        const outputHandler = (text: string, sender: 'jules' | 'system', session: ChatSession, buttons?: { label: string, cmd: string }[]) => {
+            this._appendMessageToSession(session.id, sender, text, buttons);
         };
         const statusHandler = (status: JulesAuthStatus) => {
             this._setAuthStatus(status);
@@ -602,26 +602,26 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 }
 
                 function renderCommands() {
-                    commandsView.innerHTML = '';
-                    commands.forEach(c => {
-                        const div = document.createElement('div');
-                        div.className = 'cmd-card';
+                    // ⚡ Bolt Optimization: Build HTML string once to avoid layout thrashing
+                    const html = commands.map(c => {
                         let actionHtml = '';
                         if (c.actionId) {
-                            actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
+                            actionHtml += \`<button class="cmd-btn" data-cmd="\${escapeHtml(c.actionId || '')}" onclick="sendCmd(this.dataset.cmd)">Run</button>\`;
                         }
-                        actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
+                        const copyText = c.usage || c.command || '';
+                        actionHtml += \`<button class="cmd-btn" data-copy="\${escapeHtml(copyText)}" onclick="copyToClipboard(this.dataset.copy)">Copy</button>\`;
 
-                        div.innerHTML = \`
+                        return \`
+                        <div class="cmd-card">
                             <div class="cmd-header">
-                                <span class="cmd-name">\${c.command}</span>
+                                <span class="cmd-name">\${escapeHtml(c.command || '')}</span>
                                 <div class="cmd-actions">\${actionHtml}</div>
                             </div>
-                            <div class="cmd-desc">\${c.description}</div>
-                            \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
-                        \`;
-                        commandsView.appendChild(div);
-                    });
+                            <div class="cmd-desc">\${escapeHtml(c.description || '')}</div>
+                            \${c.usage ? \`<div class="cmd-usage">\${escapeHtml(c.usage)}</div>\` : ''}
+                        </div>\`;
+                    }).join('');
+                    commandsView.innerHTML = html;
                 }
 
                 function copyToClipboard(text) {

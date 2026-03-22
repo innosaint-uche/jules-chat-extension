@@ -318,7 +318,7 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
 
-    // --- REMOTE OPS ---
+    // --- UNDOING & CLEANING ---
     {
         command: 'jules git remote -v',
         description: 'Show remote repositories and their URLs.',
@@ -326,9 +326,15 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git remote add',
-        description: 'Add a new remote repository.',
-        usage: 'git remote add <name> <url>',
+        command: 'jules git reset --hard',
+        description: 'Reset current HEAD, index, and working tree (DISCARDS CHANGES).',
+        usage: 'git reset --hard <commit>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
         category: 'git'
     },
     {
@@ -344,28 +350,30 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'git'
     },
     {
-        command: 'jules git pull',
-        description: 'Fetch from and integrate with another repository or a local branch.',
-        usage: 'git pull origin main',
+        command: 'jules git restore',
+        description: 'Restore working tree files.',
+        usage: 'git restore <file>',
         category: 'git'
     },
     {
-        command: 'jules git push',
-        description: 'Update remote refs along with associated objects.',
-        usage: 'git push origin main',
+        command: 'jules git restore --staged',
+        description: 'Restore paths in the index (unstage).',
+        usage: 'git restore --staged <file>',
+        category: 'git'
+    },
+
+    // --- STASHING ---
+    {
+        command: 'jules git stash',
+        description: 'Stash the changes in a dirty working directory away.',
+        usage: 'git stash',
         category: 'git'
     },
     {
-        command: 'jules git push -u',
-        description: 'Push and set upstream.',
-        usage: 'git push -u origin <branch>',
+        command: 'jules git stash list',
+        description: 'List the stash entries that you currently have.',
+        usage: 'git stash list',
         category: 'git'
-    },
-    {
-        command: 'jules git push --force',
-        description: 'Force update remote refs (use with caution).',
-        usage: 'git push --force',
-        category: 'advanced-git'
     },
 
     // --- LOGS & HISTORY ---
@@ -393,6 +401,8 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git blame <file>',
         category: 'git'
     },
+
+    // --- TAGS ---
     {
         command: 'jules git show',
         description: 'Show various types of objects (commits, tags, trees).',
@@ -494,10 +504,54 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         category: 'advanced-git'
     },
     {
-        command: 'jules git revert',
-        description: 'Create a new commit that undoes the changes of a previous commit.',
-        usage: 'git revert <commit>',
+        command: 'jules git push --tags',
+        description: 'Push all tags to remote.',
+        usage: 'git push --tags',
         category: 'git'
+    },
+
+    // --- ADVANCED GIT ---
+    {
+        command: 'jules git bisect start',
+        description: 'Start binary search to find the commit that introduced a bug.',
+        usage: 'git bisect start',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git bisect bad',
+        description: 'Mark the current commit as bad.',
+        usage: 'git bisect bad',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git bisect good',
+        description: 'Mark the current (or specified) commit as good.',
+        usage: 'git bisect good <commit>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git submodule update',
+        description: 'Update registered submodules.',
+        usage: 'git submodule update --init --recursive',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git worktree list',
+        description: 'List details of each worktree.',
+        usage: 'git worktree list',
+        category: 'advanced-git'
+    },
+     {
+        command: 'jules git worktree add',
+        description: 'Create a new worktree.',
+        usage: 'git worktree add <path> <branch>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'advanced-git'
     },
 
     // --- MISC ---
@@ -506,6 +560,55 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         description: 'Print lines matching a pattern.',
         usage: 'git grep <pattern>',
         category: 'git'
+    },
+    // --- ADVANCED GIT OPS ---
+    {
+        command: 'jules git stash list',
+        description: 'List the stash entries that you currently have.',
+        usage: 'git stash list',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git stash save',
+        description: 'Save your local modifications to a new stash entry.',
+        usage: 'git stash save "message"',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git stash drop',
+        description: 'Remove a single stashed state from the stash list.',
+        usage: 'git stash drop <stash>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git clean',
+        description: 'Remove untracked files from the working tree.',
+        usage: 'git clean -fd',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git restore',
+        description: 'Restore working tree files.',
+        usage: 'git restore <file>',
+        category: 'git'
+    },
+    {
+        command: 'jules git bisect',
+        description: 'Use binary search to find the commit that introduced a bug.',
+        usage: 'git bisect start',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git cherry-pick',
+        description: 'Apply the changes introduced by some existing commits.',
+        usage: 'git cherry-pick <commit>',
+        category: 'advanced-git'
+    },
+    {
+        command: 'jules git submodule',
+        description: 'Initialize, update or inspect submodules.',
+        usage: 'git submodule update --init --recursive',
+        category: 'advanced-git'
     },
     {
         command: 'jules git tag',
