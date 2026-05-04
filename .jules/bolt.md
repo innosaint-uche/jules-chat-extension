@@ -13,3 +13,7 @@
 ## 2025-01-29 - DOM Layout Thrashing in Webviews
 **Learning:** Building UI lists by iterating and calling `appendChild` for every item triggers a layout reflow for each item, which becomes a bottleneck as list size grows (O(n) reflows).
 **Action:** Batched DOM updates by constructing a single HTML string using `map().join('')` and setting `innerHTML` once, reducing reflows to O(1).
+
+## 2026-05-04 - Always Escape When Switching to innerHTML Batching
+**Learning:** When converting an `appendChild` loop to a batched `innerHTML = map().join('')`, the previous safety net of setting text via `textContent`/`innerText` is gone — interpolated values become live HTML. Several CLI command entries contain `<placeholder>` style usage strings (`git restore <file>`) and quoted text (`git commit -m "message"`), which broke rendering and onclick attribute quoting when interpolated raw.
+**Action:** Restored `escapeHtml()` on every interpolated value in `renderCommands` and `renderSessionList`, and switched dynamic handler params (command IDs, copy strings, session IDs) to a `data-*` attribute + `this.dataset.*` pattern so quotes/brackets in the data cannot break the surrounding HTML.
