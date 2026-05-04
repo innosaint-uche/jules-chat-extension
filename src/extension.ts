@@ -596,22 +596,25 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 }
 
                 function renderCommands() {
-                    // Bolt: Optimized to prevent layout thrashing
+                    // Bolt: Build HTML once with map().join('') to avoid O(n) layout thrashing.
+                    // Use escapeHtml() and data-* attributes for safe handler params (prevents broken markup
+                    // and onclick attribute injection from command data containing <, >, or quotes).
                     commandsView.innerHTML = commands.map(c => {
                         let actionHtml = '';
                         if (c.actionId) {
-                            actionHtml += \`<button class="cmd-btn" onclick="sendCmd('\${c.actionId}')">Run</button>\`;
+                            actionHtml += \`<button class="cmd-btn" data-cmd="\${escapeHtml(c.actionId || '')}" onclick="sendCmd(this.dataset.cmd)">Run</button>\`;
                         }
-                        actionHtml += \`<button class="cmd-btn" onclick="copyToClipboard('\${c.usage || c.command}')">Copy</button>\`;
+                        const copyText = c.usage || c.command || '';
+                        actionHtml += \`<button class="cmd-btn" data-copy="\${escapeHtml(copyText)}" onclick="copyToClipboard(this.dataset.copy)">Copy</button>\`;
 
                         return \`
                             <div class="cmd-card">
                                 <div class="cmd-header">
-                                    <span class="cmd-name">\${c.command}</span>
+                                    <span class="cmd-name">\${escapeHtml(c.command || '')}</span>
                                     <div class="cmd-actions">\${actionHtml}</div>
                                 </div>
-                                <div class="cmd-desc">\${c.description}</div>
-                                \${c.usage ? \`<div class="cmd-usage">\${c.usage}</div>\` : ''}
+                                <div class="cmd-desc">\${escapeHtml(c.description || '')}</div>
+                                \${c.usage ? \`<div class="cmd-usage">\${escapeHtml(c.usage)}</div>\` : ''}
                             </div>
                         \`;
                     }).join('');
@@ -628,34 +631,23 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                     vscode.postMessage({ type: 'command', value: 'notify:Copied to clipboard' });
                 }
 
-                function createNewSession() {
-                    vscode.postMessage({ type: 'newSession' });
-                }
-
-                function switchSession(id) {
-                    vscode.postMessage({ type: 'switchSession', id: id });
-                }
-
-                function backToList() {
-                    vscode.postMessage({ type: 'backToList' });
-                }
                 function createNewSession() { vscode.postMessage({ type: 'newSession' }); }
                 function switchSession(id) { vscode.postMessage({ type: 'switchSession', id: id }); }
                 function backToList() { vscode.postMessage({ type: 'backToList' }); }
 
                 function renderSessionList(sessions) {
-                    sessionListEl.innerHTML = '';
                     if (sessions.length === 0) {
                         sessionListEl.innerHTML = '<div style="text-align:center; margin-top:20px; color:var(--vscode-descriptionForeground)">No active tasks.<br>Click "+ New Task" to start.</div>';
                         return;
                     }
-                    sessions.forEach(s => {
-                        const div = document.createElement('div');
-                        div.className = 'session-item';
-                        div.onclick = () => switchSession(s.id);
-                        div.innerHTML = \`<span class="session-title">\${escapeHtml(s.title)}</span><div class="session-preview">\${escapeHtml(s.preview)}</div>\`;
-                        sessionListEl.appendChild(div);
-                    });
+                    // Bolt: Build HTML once with map().join('') to avoid O(n) reflows.
+                    // Pass session id via data-* attribute so quotes/special chars cannot break the onclick.
+                    sessionListEl.innerHTML = sessions.map(s => \`
+                        <div class="session-item" data-session-id="\${escapeHtml(s.id)}" onclick="switchSession(this.dataset.sessionId)">
+                            <span class="session-title">\${escapeHtml(s.title)}</span>
+                            <div class="session-preview">\${escapeHtml(s.preview)}</div>
+                        </div>
+                    \`).join('');
                 }
 
                 function showView(viewName) {
