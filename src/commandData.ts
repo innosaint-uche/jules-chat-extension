@@ -353,6 +353,18 @@ export const CLI_COMMANDS: CommandDefinition[] = [
         usage: 'git shortlog -sn',
         category: 'git'
     },
+    {
+        command: 'jules git show',
+        description: 'Show various types of objects (commits, tags, trees).',
+        usage: 'git show <object>',
+        category: 'git'
+    },
+    {
+        command: 'jules git describe',
+        description: 'Give an object a human readable name based on an available ref.',
+        usage: 'git describe',
+        category: 'git'
+    },
 
     // --- REMOTE OPS ---
     {

@@ -165,7 +165,11 @@ class JulesChatProvider implements vscode.WebviewViewProvider {
                 this._view?.webview.postMessage({ type: 'setInput', value: 'pull <session-id>' });
                 break;
             default:
-                if (cmd.startsWith('git:')) await this._handleGitCommand(cmd);
+                if (cmd.startsWith('git:')) {
+                    await this._handleGitCommand(cmd);
+                } else if (cmd.startsWith('notify:')) {
+                    vscode.window.showInformationMessage(cmd.slice('notify:'.length));
+                }
                 break;
         }
     }

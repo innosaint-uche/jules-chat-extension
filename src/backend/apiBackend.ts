@@ -161,8 +161,6 @@ export class ApiBackend implements JulesBackend {
             return this._sourceNameCache.get(repoSlug)!;
         }
 
-        const normalizedSlug = repoSlug.toLowerCase();
-
         // List sources and find the one matching the repo
         // TODO: Handle pagination if user has many sources
         try {
